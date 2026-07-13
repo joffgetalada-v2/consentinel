@@ -1,0 +1,121 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
+// enough when changing adapters.
+// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+// Local dev uses SQLite. To switch to PostgreSQL in production:
+//   1. change `provider` to "postgresql"
+//   2. set DATABASE_URL to your Postgres connection string
+//   3. run `prisma migrate deploy` (regenerate migrations if switching mid-project)
+// String-typed pseudo-enums below stay portable across both providers.
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}
+
+// Per-shop banner configuration and plan state. One row per shop, created
+// lazily with defaults on first read (see app/models/shopSettings.server.ts).
+// Pseudo-enum fields are Strings because SQLite has no native enums; valid
+// values are enforced in app/types/consent.ts + the model layer.
+model ShopSettings {
+  id   String @id @default(cuid())
+  shop String @unique // *.myshopify.com domain — the natural key across the app
+
+  // Banner content (merchant-editable in the admin UI)
+  heading          String  @default("We value your privacy")
+  body             String  @default("We use cookies to enhance your browsing experience, serve personalized content, and analyze our traffic. You can accept all cookies, reject non-essential ones, or customize your preferences.")
+  acceptLabel      String  @default("Accept all")
+  rejectLabel      String  @default("Reject all")
+  customizeLabel   String  @default("Customize")
+  // Nullable on purpose: the storefront banner must degrade gracefully
+  // (hide the policy link) when the merchant hasn't set a policy URL yet.
+  privacyPolicyUrl String?
+
+  // Appearance
+  position    String @default("bottom_bar") // bottom_bar | bottom_left | bottom_right | center_modal
+  themePreset String @default("light") // light | dark
+  accentColor String @default("#1A1A1A") // hex, validated in the model layer
+
+  // Billing state (managed via the Shopify Billing API — never hardcoded charges).
+  // `plan` is a cached copy of the subscription check for cheap feature gating;
+  // the source of truth is always the Billing API (re-verified on load).
+  plan           String  @default("free") // free | paid
+  subscriptionId String? // AppSubscription GID when on the paid plan
+  showBranding   Boolean @default(true) // "Powered by" credit; removable on paid plan
+
+  onboardingDismissed Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Which consent model applies to visitors from a given region group.
+// Merchants toggle these in the admin; the storefront embed resolves the
+// visitor's region (via Shopify's Customer Privacy API signals) against
+// these rules to decide opt-in banner vs "Do Not Sell/Share" opt-out.
+// Defaults are seeded on first read: EU + UK opt-in, US privacy-law states opt-out.
+model RegionRule {
+  id      String  @id @default(cuid())
+  shop    String
+  region  String // region-group code, e.g. "EU", "UK", "US-CA" — see app/types/consent.ts
+  mode    String // opt_in | opt_out
+  enabled Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shop, region])
+  @@index([shop])
+}
+
+// Read-only audit trail of consent decisions for the merchant's records.
+// Deliberately PII-free (GDPR data-minimization): no IP address, no user
+// agent, no customer id. `visitorToken` is a random client-generated token
+// so repeat events from one browser can be correlated, nothing more.
+// Written by the storefront via the app proxy endpoint (built in step 5).
+// Phase 2 hooks: retention auto-purge and DSAR export would query this model.
+model ConsentEvent {
+  id        String   @id @default(cuid())
+  shop      String
+  createdAt DateTime @default(now())
+
+  region String? // visitor's region group at decision time, if resolvable
+  mode   String // opt_in | opt_out — which consent model the banner ran in
+  action String // accept_all | reject_all | custom | sale_opt_out
+
+  // Category outcomes. "Necessary" is always granted so it isn't stored.
+  preferences Boolean @default(false)
+  analytics   Boolean @default(false)
+  marketing   Boolean @default(false)
+  // Only meaningful in opt-out regions; null in opt-in regions.
+  saleOfDataOptedOut Boolean?
+
+  visitorToken String?
+
+  @@index([shop, createdAt])
+}
