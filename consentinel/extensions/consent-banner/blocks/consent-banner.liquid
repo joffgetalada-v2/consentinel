@@ -5,8 +5,8 @@
   that must run before other scripts in <head>. The script tag below is
   intentionally NOT deferred/async — genuine pre-consent blocking requires
   our (tiny) script to install its blocker and Google Consent Mode defaults
-  before any theme or app scripts execute. The bundle is kept under ~15KB
-  to make that parser-blocking moment negligible.
+  before any theme or app scripts execute. The bundle is kept around ~16KB
+  minified (~6KB gzipped) to make that parser-blocking moment negligible.
 
   Configuration comes from an app-owned metafield written by the admin app
   (see app/models/storefrontConfig.server.ts) — no storefront API call, no
@@ -19,13 +19,18 @@
 <script>
   window.__consentinel = {
     config: {{ app.metafields.consentinel.banner_config.value | json }},
+    {% # localization.country follows the buyer's IP (market resolution), so
+       # the bundle can resolve the visitor's region group without relying on
+       # Shopify's cookie-banner region settings — those are OFF when this
+       # app replaces the native banner. %}
+    country: {{ localization.country.iso_code | json }},
     proxyUrl: "/apps/consentinel/consent"
   };
 </script>
 {% # theme-check-disable ParserBlockingScript %}
 {% # Parser-blocking on purpose: the consent blocker and Google Consent Mode
    # defaults must execute before any other script on the page. The bundle is
-   # ~4KB gzipped, so the cost is negligible — and it's the entire point of
+   # ~6KB gzipped, so the cost is negligible — and it's the entire point of
    # the compliance_head target. %}
 <script src="{{ 'consent-banner.js' | asset_url }}"></script>
 {% # theme-check-enable ParserBlockingScript %}

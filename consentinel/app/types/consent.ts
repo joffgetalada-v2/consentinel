@@ -95,6 +95,42 @@ export const REGION_GROUPS: RegionGroupDefinition[] = [
 export const REGION_CODES = REGION_GROUPS.map((g) => g.code);
 
 // ---------------------------------------------------------------------------
+// Visitor country → region group resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * EU members plus the EEA states (IS/LI/NO) — GDPR applies to all of them.
+ * Used by the storefront bundle to resolve the visitor's country (from
+ * Shopify's `localization.country`, which follows buyer IP) to a region
+ * group WITHOUT depending on Shopify's cookie-banner region settings —
+ * merchants disable Shopify's native banner entirely when using this app,
+ * which also turns off the `shouldShowBanner()` signal.
+ */
+export const EU_COUNTRY_CODES = [
+  "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR",
+  "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL",
+  "PL", "PT", "RO", "SK", "SI", "ES", "SE",
+  "IS", "LI", "NO",
+] as const;
+
+/**
+ * Maps an ISO country code to the region-group *family* used by RegionRule.
+ * US state laws can't be resolved client-side (no state geolocation in
+ * Liquid), so all US visitors map to the "US" family and the storefront
+ * treats any enabled US-* rule as applying — the standard, conservative
+ * approach for CCPA-style opt-out apps.
+ */
+export function regionFamilyForCountry(
+  countryCode: string,
+): "EU" | "UK" | "US" | null {
+  const code = countryCode.toUpperCase();
+  if ((EU_COUNTRY_CODES as readonly string[]).includes(code)) return "EU";
+  if (code === "GB") return "UK";
+  if (code === "US") return "US";
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Validation helpers (tiny on purpose — no schema library in the MVP)
 // ---------------------------------------------------------------------------
 

@@ -15,13 +15,16 @@
  *      setTrackingConsent(), update Consent Mode, release blocked scripts
  *      for granted categories, and log the event via the app proxy.
  *
- * Deliberately dependency-free vanilla TypeScript; target bundle < 15KB.
+ * Deliberately dependency-free vanilla TypeScript; target bundle ≤ 16KB
+ * minified (~6KB gzipped — the number that matters on the wire).
  * Consent state lives exclusively in Shopify's Customer Privacy API — we
  * never read or write Shopify cookies directly.
  *
  * Phase 2 plug-in points are marked with `PHASE2:` comments (TCF v2.3
  * signal emission, per-service script map, headless/Hydrogen support).
  */
+
+import { regionFamilyForCountry } from "../types/consent";
 
 // ---------------------------------------------------------------------------
 // Types for the pieces of Shopify's storefront globals we touch
@@ -58,6 +61,8 @@ interface ConsentinelConfig {
   rejectLabel: string;
   customizeLabel: string;
   privacyPolicyUrl: string | null;
+  /** Merchant logo (Pro feature); the server sends null on the free plan. */
+  logoUrl: string | null;
   position: "bottom_bar" | "bottom_left" | "bottom_right" | "center_modal";
   themePreset: "light" | "dark";
   accentColor: string;
@@ -66,6 +71,8 @@ interface ConsentinelConfig {
   optIn: boolean;
   /** Any enabled opt-out region rule (US privacy-law states) */
   optOut: boolean;
+  /** Enabled region rules for client-side region resolution. */
+  regions: { region: string; mode: string }[];
 }
 
 declare global {
@@ -78,7 +85,12 @@ declare global {
       customerPrivacy?: CustomerPrivacy;
     };
     dataLayer?: unknown[];
-    __consentinel?: { config: Partial<ConsentinelConfig> | null; proxyUrl: string };
+    __consentinel?: {
+      config: Partial<ConsentinelConfig> | null;
+      /** Visitor country (ISO) from Liquid `localization.country`. */
+      country?: string | null;
+      proxyUrl: string;
+    };
   }
 }
 
@@ -97,17 +109,35 @@ const DEFAULTS: ConsentinelConfig = {
   rejectLabel: "Reject all",
   customizeLabel: "Customize",
   privacyPolicyUrl: null,
+  logoUrl: null,
   position: "bottom_bar",
   themePreset: "light",
   accentColor: "#1A1A1A",
   showBranding: true,
   optIn: true,
   optOut: true,
+  regions: [],
 };
 
 const bootData = window.__consentinel;
 const config: ConsentinelConfig = { ...DEFAULTS, ...(bootData?.config ?? {}) };
 const proxyUrl = bootData?.proxyUrl ?? "/apps/consentinel/consent";
+
+/**
+ * Merchant preview: ?consentinel_preview=1 force-renders the banner
+ * regardless of region or a stored decision, and turns button clicks into
+ * plain dismissals (no consent written, no event logged) — so merchants
+ * outside regulated regions can review styling and copy safely.
+ * `=1` or `=opt_in` shows the customizable opt-in banner;
+ * `=opt_out` shows the US "Do Not Sell" variant.
+ */
+const previewParam = /[?&]consentinel_preview=([^&]+)/.exec(window.location.search);
+const PREVIEW_MODE: "opt_in" | "opt_out" | null = previewParam
+  ? previewParam[1] === "opt_out"
+    ? "opt_out"
+    : "opt_in"
+  : null;
+const IS_PREVIEW = PREVIEW_MODE !== null;
 
 type Category = "preferences" | "analytics" | "marketing";
 const CATEGORIES: Category[] = ["preferences", "analytics", "marketing"];
@@ -348,10 +378,94 @@ function hasDecision(consent: VisitorConsent): boolean {
   );
 }
 
-function start(api: CustomerPrivacy): void {
+/**
+ * Detects the visitor's country. Primary source: Shopify's IP-geolocation
+ * endpoint (the one the Geolocation app uses) — `localization.country` from
+ * Liquid is only the MARKET country, which falls back to the store's primary
+ * market for visitors outside all configured markets (e.g. an EU visitor to
+ * a US-only store would look like "US" and get the wrong consent model).
+ * Falls back to the Liquid country if the endpoint is slow (>1.5s) or
+ * unavailable; the script blocker stays active while we wait, so the page
+ * remains fail-closed during detection.
+ */
+function detectCountry(callback: (country: string) => void): void {
+  const fallback = bootData?.country ?? "";
+  let settled = false;
+  const settle = (value: string): void => {
+    if (settled) return;
+    settled = true;
+    callback(value);
+  };
+  const timer = setTimeout(() => settle(fallback), 1500);
+
+  try {
+    fetch("/browsing_context_suggestions?country%5Benabled%5D=true", {
+      headers: { Accept: "application/json" },
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((json: { detected_values?: { country?: { handle?: string } } } | null) => {
+        clearTimeout(timer);
+        settle(json?.detected_values?.country?.handle || fallback);
+      })
+      .catch(() => {
+        clearTimeout(timer);
+        settle(fallback);
+      });
+  } catch {
+    clearTimeout(timer);
+    settle(fallback);
+  }
+}
+
+/**
+ * Resolves the visitor's region group from the detected country and the
+ * merchant's enabled region rules. This is the primary display signal:
+ * Shopify's shouldShowBanner()/saleOfDataRegion() go silent when the
+ * merchant disables the native cookie banner (required to avoid a double
+ * banner), so we cannot rely on them alone.
+ *
+ * US visitors can't be resolved to a state client-side, so any enabled
+ * US-* rule applies to all US visitors; opt_out wins if modes are mixed
+ * (the CCPA-style default).
+ */
+function resolveLocalRegion(
+  countryCode: string,
+): { group: string; mode: "opt_in" | "opt_out" } | null {
+  const country = countryCode.toUpperCase();
+  if (!country || config.regions.length === 0) return null;
+  const family = regionFamilyForCountry(country);
+  if (!family) return null;
+
+  if (family === "US") {
+    const usRules = config.regions.filter((rule) => rule.region.startsWith("US-"));
+    if (usRules.length === 0) return null;
+    const mode = usRules.some((rule) => rule.mode === "opt_out") ? "opt_out" : "opt_in";
+    return { group: "US", mode };
+  }
+
+  const rule = config.regions.find((candidate) => candidate.region === family);
+  if (!rule || (rule.mode !== "opt_in" && rule.mode !== "opt_out")) return null;
+  return { group: family, mode: rule.mode };
+}
+
+/** Region group for the audit log; set once during start(). */
+let visitorRegion: string | null = null;
+
+function start(api: CustomerPrivacy, country: string): void {
   const prior = api.currentVisitorConsent();
-  const saleRegion = api.saleOfDataRegion();
-  const needsBanner = api.shouldShowBanner();
+  const local = resolveLocalRegion(country);
+  visitorRegion = local?.group ?? null;
+
+  if (PREVIEW_MODE) {
+    whenBodyReady(() => renderBanner(api, PREVIEW_MODE));
+    return;
+  }
+
+  // Shopify's signals OR our own resolution — either may be the only one
+  // present (native banner disabled → Shopify signals stay false; missing
+  // metafield/country → local resolution stays null and Shopify decides).
+  const saleRegion = api.saleOfDataRegion() || local?.mode === "opt_out";
+  const needsBanner = api.shouldShowBanner() || local?.mode === "opt_in";
 
   if (saleRegion && config.optOut) {
     // Opt-out model: tracking may run by default. Unblock everything unless
@@ -403,6 +517,12 @@ function submitConsent(
   categories: { preferences: boolean; analytics: boolean; marketing: boolean },
   saleOfData: boolean | null,
 ): void {
+  if (IS_PREVIEW) {
+    // Preview is look-but-don't-touch: no consent write, no audit entry.
+    removeBanner();
+    return;
+  }
+
   const input: TrackingConsentInput = { ...categories };
   if (saleOfData !== null) input.sale_of_data = saleOfData;
 
@@ -432,6 +552,7 @@ function logEvent(
         categories,
         saleOfDataOptedOut: saleOfDataOptedOut === null ? null : !saleOfDataOptedOut,
         visitorToken: token,
+        region: visitorRegion,
       }),
       keepalive: true,
     });
@@ -482,42 +603,86 @@ function readableTextColor(hex: string): string {
 
 function styles(): string {
   const dark = config.themePreset === "dark";
-  const surface = dark ? "#1f1f1f" : "#ffffff";
-  const text = dark ? "#f5f5f5" : "#1a1a1a";
-  const subdued = dark ? "#b3b3b3" : "#555555";
-  const border = dark ? "#3d3d3d" : "#dddddd";
+  const surface = dark ? "#212226" : "#ffffff";
+  const text = dark ? "#f4f4f5" : "#1a1a1a";
+  const subdued = dark ? "#a6a7ad" : "#57575c";
+  const border = dark ? "#3a3b41" : "#e3e3e6";
+  const hover = dark ? "#2c2d33" : "#f4f4f6";
   const accent = config.accentColor;
   const accentText = readableTextColor(accent);
+  const font =
+    "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
   const positionCss = {
-    bottom_bar: "left:16px;right:16px;bottom:16px;",
-    bottom_left: "left:16px;bottom:16px;max-width:380px;",
-    bottom_right: "right:16px;bottom:16px;max-width:380px;",
-    center_modal: "left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100vw - 32px));",
-  }[config.position];
+    // Centered bar with a width cap — a viewport-wide bar leaves a dead
+    // zone on large screens (text is capped at 62ch).
+    bottom_bar:
+      "left:50%;transform:translateX(-50%);bottom:16px;width:calc(100vw - 32px);max-width:960px;",
+    bottom_left: "left:16px;bottom:16px;max-width:400px;",
+    bottom_right: "right:16px;bottom:16px;max-width:400px;",
+    center_modal:
+      "left:50%;top:50%;transform:translate(-50%,-50%);width:min(460px,calc(100vw - 32px));",
+  }[config.position] ?? "left:16px;right:16px;bottom:16px;";
 
+  // Theme stylesheets target bare elements (h2, p, button, a), so every
+  // element we render sets its typography and color EXPLICITLY — the
+  // two-class specificity below beats any element or single-class theme rule.
+  // NOTE the backdrop class is deliberately NOT named "overlay"/"backdrop":
+  // adblock annoyance lists hide elements matching those generic patterns,
+  // which is how the modal's dim layer vanished for Brave users.
   return `
-.cstl-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2147483646}
+.cstl-scrim{position:fixed;inset:0;background:rgba(15,15,18,.5);z-index:2147483646;
+  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
 .cstl-banner{position:fixed;${positionCss}z-index:2147483647;background:${surface};color:${text};
-  border:1px solid ${border};border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.25);
-  padding:20px;font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
-.cstl-heading{font-size:16px;font-weight:700;margin:0 0 6px}
-.cstl-body{color:${subdued};margin:0 0 14px}
-.cstl-body a{color:${accent};text-decoration:underline}
+  border:1px solid ${border};border-radius:16px;
+  box-shadow:0 16px 48px rgba(0,0,0,.22),0 2px 8px rgba(0,0,0,.10);
+  padding:22px 24px;font:400 14px/1.55 ${font};text-align:left;letter-spacing:normal}
+.cstl-banner,.cstl-banner *{box-sizing:border-box}
+.cstl-banner .cstl-logo{display:block;max-height:36px;max-width:180px;width:auto;height:auto;
+  margin:0 0 12px;border:0;padding:0}
+.cstl-banner .cstl-heading{font:600 16px/1.3 ${font};letter-spacing:-.01em;color:${text};
+  margin:0 0 8px;padding:0;text-transform:none}
+.cstl-banner .cstl-body{font:400 14px/1.55 ${font};letter-spacing:normal;color:${subdued};margin:0 0 16px;padding:0;max-width:62ch}
+.cstl-banner .cstl-body a{color:${text};text-decoration:underline;text-underline-offset:2px}
+.cstl-banner .cstl-body a:hover{color:${accent}}
+.cstl-main{display:flex;flex-direction:column}
+.cstl-banner--bottom_bar .cstl-main{flex-direction:row;align-items:center;justify-content:space-between;gap:28px}
+.cstl-banner--bottom_bar .cstl-body{margin:0}
+.cstl-banner--bottom_bar .cstl-actions{flex:none}
 .cstl-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.cstl-btn{font:inherit;font-weight:600;border-radius:8px;padding:10px 18px;cursor:pointer;border:1px solid ${border};background:transparent;color:${text}}
-.cstl-btn:focus-visible{outline:3px solid ${accent};outline-offset:2px}
-.cstl-btn--primary{background:${accent};border-color:${accent};color:${accentText}}
-.cstl-link{font:inherit;background:none;border:none;padding:10px 4px;cursor:pointer;color:${subdued};text-decoration:underline}
-.cstl-link:focus-visible{outline:3px solid ${accent};outline-offset:2px}
-.cstl-brand{margin-top:10px;font-size:11px;color:${subdued}}
-.cstl-cats{display:flex;flex-direction:column;gap:10px;margin:0 0 14px;padding:0;list-style:none}
-.cstl-cat{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid ${border};border-radius:8px;padding:10px 12px}
-.cstl-cat b{font-weight:600}
-.cstl-cat small{display:block;color:${subdued}}
-.cstl-toggle{width:20px;height:20px;accent-color:${accent}}
-@media (prefers-reduced-motion:no-preference){.cstl-banner{animation:cstl-in .25s ease}}
-@keyframes cstl-in{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+.cstl-banner .cstl-btn{font:600 14px/1 ${font};letter-spacing:normal;border-radius:10px;
+  padding:11px 20px;cursor:pointer;border:1px solid ${border};background:transparent;color:${text};
+  margin:0;text-transform:none;min-height:0;transition:background-color .15s ease,filter .15s ease}
+.cstl-banner .cstl-btn:hover{background:${hover}}
+.cstl-banner .cstl-btn:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.cstl-banner .cstl-btn--primary{background:${accent};border-color:${accent};color:${accentText}}
+.cstl-banner .cstl-btn--primary:hover{background:${accent};filter:brightness(1.12)}
+.cstl-banner .cstl-link{font:500 14px/1 ${font};letter-spacing:normal;background:none;border:none;padding:11px 4px;margin:0;
+  cursor:pointer;color:${subdued};text-decoration:underline;text-underline-offset:2px;text-transform:none}
+.cstl-banner .cstl-link:hover{color:${text}}
+.cstl-banner .cstl-link:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.cstl-banner .cstl-brand{margin:14px 0 0;font:400 11px/1 ${font};letter-spacing:normal;color:${subdued};opacity:.85}
+.cstl-cats{display:flex;flex-direction:column;gap:8px;margin:0 0 16px;padding:0;list-style:none}
+.cstl-banner .cstl-cat{border:1px solid ${border};border-radius:10px;padding:0;margin:0;list-style:none}
+.cstl-banner .cstl-catrow{display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:11px 14px;margin:0;cursor:pointer;font:inherit}
+.cstl-banner .cstl-catrow--locked{cursor:default}
+.cstl-banner .cstl-cat b{font:600 13.5px/1.4 ${font};letter-spacing:normal;color:${text};display:block}
+.cstl-banner .cstl-cat small{display:block;font:400 12.5px/1.45 ${font};letter-spacing:normal;color:${subdued};margin-top:1px}
+.cstl-banner .cstl-toggle{appearance:none;-webkit-appearance:none;width:20px;height:20px;margin:0;
+  flex:none;border:2px solid ${subdued};border-radius:6px;background:transparent;cursor:pointer;
+  position:relative;transition:background-color .15s ease,border-color .15s ease}
+.cstl-banner .cstl-toggle:checked{background:${text};border-color:${text}}
+.cstl-banner .cstl-toggle:checked::after{content:"";position:absolute;left:4.5px;top:1px;width:5px;
+  height:10px;border:solid ${surface};border-width:0 2px 2px 0;transform:rotate(45deg)}
+.cstl-banner .cstl-toggle:disabled{opacity:.5;cursor:not-allowed}
+.cstl-banner .cstl-toggle:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+@media (max-width:760px){.cstl-banner--bottom_bar .cstl-main{flex-direction:column;align-items:stretch;gap:0}
+  .cstl-banner--bottom_bar .cstl-body{margin:0 0 16px}}
+@media (max-width:520px){.cstl-banner{left:12px;right:12px;bottom:12px;width:auto;max-width:none;padding:18px;
+  transform:none;top:auto}.cstl-actions .cstl-btn{flex:1;text-align:center}}
+@media (prefers-reduced-motion:no-preference){.cstl-banner{animation:cstl-in .28s cubic-bezier(.16,1,.3,1)}}
+@keyframes cstl-in{from{opacity:0}to{opacity:1}}
 `;
 }
 
@@ -532,13 +697,13 @@ function renderBanner(api: CustomerPrivacy, mode: "opt_in" | "opt_out"): void {
   bannerRoot.appendChild(styleTag);
 
   if (config.position === "center_modal") {
-    const overlay = document.createElement("div");
-    overlay.className = "cstl-overlay";
-    bannerRoot.appendChild(overlay);
+    const scrim = document.createElement("div");
+    scrim.className = "cstl-scrim";
+    bannerRoot.appendChild(scrim);
   }
 
   const panel = document.createElement("div");
-  panel.className = "cstl-banner";
+  panel.className = `cstl-banner cstl-banner--${config.position}`;
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-modal", config.position === "center_modal" ? "true" : "false");
   panel.setAttribute("aria-labelledby", "cstl-heading");
@@ -554,11 +719,22 @@ function renderBanner(api: CustomerPrivacy, mode: "opt_in" | "opt_out"): void {
     mode === "opt_out"
       ? "We may share information about your use of our site for advertising. You can opt out of the sale or sharing of your personal information."
       : escapeHtml(config.body);
+  // Merchant logo (Pro): decorative next to the heading, so alt stays empty.
+  const logo = config.logoUrl
+    ? `<img class="cstl-logo" src="${escapeAttribute(config.logoUrl)}" alt="">`
+    : "";
 
+  // Content and actions live in one flex container so the bottom bar can
+  // lay them out side by side (text left, buttons right) on wide screens.
   panel.innerHTML =
+    `<div class="cstl-main">` +
+    `<div class="cstl-content">` +
+    logo +
     `<h2 class="cstl-heading" id="cstl-heading">${heading}</h2>` +
     `<p class="cstl-body" id="cstl-body">${body}${policyLink}</p>` +
+    `</div>` +
     `<div class="cstl-actions"></div>` +
+    `</div>` +
     (config.showBranding ? `<div class="cstl-brand">Powered by Consentinel</div>` : "");
 
   const actions = panel.querySelector(".cstl-actions")!;
@@ -636,7 +812,13 @@ function categoryRow(name: string, description: string, category: Category | nul
     category === null
       ? `<input class="cstl-toggle" type="checkbox" checked disabled aria-label="${name} (always on)">`
       : `<input class="cstl-toggle" type="checkbox" data-cat="${category}" aria-label="${name}">`;
-  return `<li class="cstl-cat"><span><b>${name}</b><small>${description}</small></span>${control}</li>`;
+  // The whole row is a <label>, so clicking the text toggles the checkbox.
+  const locked = category === null ? " cstl-catrow--locked" : "";
+  return (
+    `<li class="cstl-cat"><label class="cstl-catrow${locked}">` +
+    `<span><b>${name}</b><small>${description}</small></span>${control}` +
+    `</label></li>`
+  );
 }
 
 function button(label: string, className: string, onClick: () => void): HTMLButtonElement {
@@ -687,7 +869,7 @@ function escapeAttribute(value: string): string {
 // Boot
 // ---------------------------------------------------------------------------
 
-loadCustomerPrivacy(start);
+loadCustomerPrivacy((api) => detectCountry((country) => start(api, country)));
 
 // Makes this file a module so the `declare global` augmentation above is valid.
 export {};

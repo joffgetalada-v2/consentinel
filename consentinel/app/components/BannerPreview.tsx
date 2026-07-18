@@ -20,6 +20,8 @@ export interface BannerPreviewProps {
   rejectLabel: string;
   customizeLabel: string;
   privacyPolicyUrl: string;
+  /** Empty string hides the logo (free plan or none configured). */
+  logoUrl: string;
   position: BannerPosition;
   themePreset: ThemePreset;
   accentColor: string;
@@ -75,6 +77,13 @@ export function BannerPreview(props: BannerPreviewProps) {
         />
       )}
       <div style={card}>
+        {props.logoUrl ? (
+          <img
+            src={props.logoUrl}
+            alt=""
+            style={{ display: "block", maxHeight: 24, maxWidth: 120, marginBottom: 8 }}
+          />
+        ) : null}
         <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>
           {props.heading || "…"}
         </div>

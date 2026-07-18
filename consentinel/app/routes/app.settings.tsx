@@ -14,6 +14,7 @@ import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { authenticate } from "../shopify.server";
+import { canUseLogo } from "../models/billing.server";
 import {
   getShopSettings,
   updateShopSettings,
@@ -32,13 +33,14 @@ import {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const settings = await getShopSettings(session.shop);
-  return { settings };
+  return { settings, canEditLogo: canUseLogo(settings.plan) };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
   const form = await request.formData();
 
+  const settings = await getShopSettings(session.shop);
   const input: ShopSettingsInput = {
     heading: String(form.get("heading") ?? ""),
     body: String(form.get("body") ?? ""),
@@ -49,6 +51,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     position: String(form.get("position") ?? ""),
     themePreset: String(form.get("themePreset") ?? ""),
     accentColor: String(form.get("accentColor") ?? ""),
+    // The logo is a Pro feature: on the free plan the field is ignored
+    // entirely (the UI disables it; this guards against crafted requests).
+    ...(canUseLogo(settings.plan)
+      ? { logoUrl: String(form.get("logoUrl") ?? "") }
+      : {}),
   };
 
   const errors = validateShopSettingsInput(input);
@@ -76,7 +83,7 @@ const THEME_LABELS: Record<ThemePreset, string> = {
 };
 
 export default function Settings() {
-  const { settings } = useLoaderData<typeof loader>();
+  const { settings, canEditLogo } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
 
@@ -88,6 +95,7 @@ export default function Settings() {
     rejectLabel: settings.rejectLabel,
     customizeLabel: settings.customizeLabel,
     privacyPolicyUrl: settings.privacyPolicyUrl ?? "",
+    logoUrl: settings.logoUrl ?? "",
     position: settings.position,
     themePreset: settings.themePreset,
     accentColor: settings.accentColor,
@@ -165,6 +173,18 @@ export default function Settings() {
             error={errorFor("privacyPolicyUrl")}
             details="Full URL or store path like /policies/privacy-policy. Leave empty to hide the link."
           />
+          <s-text-field
+            label="Logo URL"
+            value={form.logoUrl}
+            onInput={set("logoUrl")}
+            error={errorFor("logoUrl")}
+            {...(!canEditLogo ? { disabled: true } : {})}
+            details={
+              canEditLogo
+                ? "Shown above the banner heading. Upload the image in Content → Files and paste its URL. Leave empty for no logo."
+                : "Pro feature — upgrade on the Plan page to show your company logo on the banner."
+            }
+          />
         </s-stack>
       </s-section>
 
@@ -210,6 +230,7 @@ export default function Settings() {
           rejectLabel={form.rejectLabel}
           customizeLabel={form.customizeLabel}
           privacyPolicyUrl={form.privacyPolicyUrl}
+          logoUrl={canEditLogo ? form.logoUrl : ""}
           position={(form.position as BannerPosition) ?? "bottom_bar"}
           themePreset={(form.themePreset as ThemePreset) ?? "light"}
           accentColor={form.accentColor}

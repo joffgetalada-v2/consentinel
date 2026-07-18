@@ -140,6 +140,7 @@ export default function Plan() {
         <s-stack direction="block" gap="base">
           <s-paragraph>Everything in Free, plus:</s-paragraph>
           <s-paragraph>✓ Customize region rules (consent model per region, disable regions)</s-paragraph>
+          <s-paragraph>✓ Show your company logo on the banner</s-paragraph>
           <s-paragraph>✓ Remove the &quot;Powered by&quot; branding credit</s-paragraph>
           {!isPaid && (
             <>

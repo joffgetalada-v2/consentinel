@@ -15,21 +15,30 @@ import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 import { getShopSettings } from "./shopSettings.server";
 import { getRegionRules } from "./regionRules.server";
 
-/** Shape consumed by extensions/consent-banner/src/consent-banner.ts */
+/** Shape consumed by app/storefront/consent-banner.ts */
 interface StorefrontConfig {
-  v: 1;
+  v: 2;
   heading: string;
   body: string;
   acceptLabel: string;
   rejectLabel: string;
   customizeLabel: string;
   privacyPolicyUrl: string | null;
+  /** Pro feature; null on the free plan. */
+  logoUrl: string | null;
   position: string;
   themePreset: string;
   accentColor: string;
   showBranding: boolean;
   optIn: boolean;
   optOut: boolean;
+  /**
+   * Enabled region rules, so the storefront can resolve the visitor's
+   * region itself (Shopify's shouldShowBanner() goes silent when the
+   * merchant disables the native cookie banner — which they must, to avoid
+   * a double banner).
+   */
+  regions: { region: string; mode: string }[];
 }
 
 export async function buildStorefrontConfig(shop: string): Promise<StorefrontConfig> {
@@ -38,13 +47,14 @@ export async function buildStorefrontConfig(shop: string): Promise<StorefrontCon
     getRegionRules(shop),
   ]);
   return {
-    v: 1,
+    v: 2,
     heading: settings.heading,
     body: settings.body,
     acceptLabel: settings.acceptLabel,
     rejectLabel: settings.rejectLabel,
     customizeLabel: settings.customizeLabel,
     privacyPolicyUrl: settings.privacyPolicyUrl,
+    logoUrl: settings.plan === "paid" ? settings.logoUrl : null,
     position: settings.position,
     themePreset: settings.themePreset,
     accentColor: settings.accentColor,
@@ -53,6 +63,9 @@ export async function buildStorefrontConfig(shop: string): Promise<StorefrontCon
     showBranding: settings.plan === "paid" ? settings.showBranding : true,
     optIn: rules.some((rule) => rule.enabled && rule.mode === "opt_in"),
     optOut: rules.some((rule) => rule.enabled && rule.mode === "opt_out"),
+    regions: rules
+      .filter((rule) => rule.enabled)
+      .map((rule) => ({ region: rule.region, mode: rule.mode })),
   };
 }
 

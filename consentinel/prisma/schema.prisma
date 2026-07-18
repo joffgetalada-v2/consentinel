@@ -55,6 +55,9 @@ model ShopSettings {
   // Nullable on purpose: the storefront banner must degrade gracefully
   // (hide the policy link) when the merchant hasn't set a policy URL yet.
   privacyPolicyUrl String?
+  // Merchant logo shown on the banner (Pro feature). A URL — merchants
+  // upload to Shopify admin Content → Files and paste the link.
+  logoUrl          String?
 
   // Appearance
   position    String @default("bottom_bar") // bottom_bar | bottom_left | bottom_right | center_modal

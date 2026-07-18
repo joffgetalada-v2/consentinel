@@ -36,6 +36,8 @@ export interface ShopSettingsInput {
   rejectLabel?: string;
   customizeLabel?: string;
   privacyPolicyUrl?: string | null;
+  /** Pro feature — callers must gate on canUseLogo before persisting. */
+  logoUrl?: string | null;
   position?: string;
   themePreset?: string;
   accentColor?: string;
@@ -86,6 +88,19 @@ export function validateShopSettingsInput(
     });
   }
 
+  if (
+    input.logoUrl !== undefined &&
+    input.logoUrl !== null &&
+    input.logoUrl !== "" &&
+    !isPolicyUrl(input.logoUrl)
+  ) {
+    errors.push({
+      field: "logoUrl",
+      message:
+        "Enter a full image URL (https://…) — upload the logo in Content → Files and copy its link",
+    });
+  }
+
   if (input.position !== undefined && !isBannerPosition(input.position)) {
     errors.push({ field: "position", message: "Unknown banner position" });
   }
@@ -120,13 +135,14 @@ export async function updateShopSettings(
   shop: string,
   input: ShopSettingsInput,
 ): Promise<ShopSettings> {
-  // Normalize empty policy URL to null so the storefront gets one falsy shape.
+  // Normalize empty URLs to null so the storefront gets one falsy shape.
   const privacyPolicyUrl =
     input.privacyPolicyUrl === "" ? null : input.privacyPolicyUrl;
+  const logoUrl = input.logoUrl === "" ? null : input.logoUrl;
 
   await getShopSettings(shop); // ensure the row exists
   return prisma.shopSettings.update({
     where: { shop },
-    data: { ...input, privacyPolicyUrl },
+    data: { ...input, privacyPolicyUrl, logoUrl },
   });
 }

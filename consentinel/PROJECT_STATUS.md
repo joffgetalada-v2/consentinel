@@ -1,6 +1,37 @@
 # Consentinel — Project Status & Handoff
 
-_Last updated: 2026-07-14 (session 2)._
+_Last updated: 2026-07-15 (end of session 2)._
+
+## ⏸ SESSION-2 STOPPING POINT — resume here
+
+1. **IN FLIGHT, verification incomplete**: bottom-bar layout fix (bar is now
+   centered, max-width 960, content left / buttons right via `.cstl-main`
+   flex; stacks under 760px) + custom checkboxes (appearance:none, checked =
+   text-on-surface check, whole row is a `<label>` click target) — built
+   because the merchant reported dead space in the wide bottom bar and
+   unclear checkboxes on dark. Code is written, bundle builds (15.7KB min /
+   5.9KB gzip — budget restated to ≤16KB/~6KB in comments), typecheck+lint
+   clean, **but the visual harness check was interrupted**. Resume:
+   `scratchpad` harness pattern (see "Local banner harness" below), verify
+   `?theme=dark&position=bottom_bar&country=DE` main + Customize views,
+   light + mobile spot checks, then merchant deploys.
+2. **NOTHING SINCE COMMIT 82761d6 IS COMMITTED** — commit early next session.
+3. **NOT YET DEPLOYED** (merchant runs `shopify app deploy`): scrim rename,
+   focus-ring fix, Pro logo feature, bottom-bar layout + checkbox fixes.
+4. Merchant tests still owed: bottom-bar + modal layouts after deploy,
+   consent-log row after a fresh accept, GCM dataLayer entries, billing
+   upgrade/cancel flow, logo URL end-to-end (needs Pro).
+
+## Local banner harness (how to verify banner UI without the store)
+
+Create a static page that stubs `window.__consentinel` (v2 config incl.
+`regions`, `country`) and `window.Shopify.customerPrivacy` (all signals
+false — also exercises local region resolution), simulates hostile theme CSS
+(element selectors with letter-spacing/text-transform), loads
+`extensions/consent-banner/assets/consent-banner.js`, serve with
+`python3 -m http.server`, screenshot light/dark × opt_in/opt_out ×
+positions × mobile in the Claude browser. Query params worth wiring:
+`theme, position, country, accent, logo`.
 Cookie-consent / GDPR compliance Shopify app ("Built for Shopify"-ready MVP).
 Full product spec lives in the original kickoff prompt; key constraints: Customer
 Privacy API only (never raw Shopify cookies), theme app extension embed for the
@@ -22,17 +53,23 @@ banner, genuine pre-consent script blocking, Google Consent Mode v2, Polaris
       one-click embed deep link), Banner settings (live preview), Region rules,
       Consent log. All tested by merchant.
 - [x] **5. Storefront banner** — theme app extension `consent-banner`
-      (embed block, currently `target: "head"`), bundle
+      (embed block, `target: "compliance_head"` — verified listing + rendering
+      after the 2026-07-14 deploy), bundle
       `app/storefront/consent-banner.ts` → `npm run build:banner` →
-      `extensions/consent-banner/assets/consent-banner.js` (10.6KB min).
+      `extensions/consent-banner/assets/consent-banner.js` (10.7KB min).
       Customer Privacy API (with boot-race retry loader), script blocker,
       GCM v2 defaults/updates, a11y banner + preferences modal, app proxy
       event logging (`/apps/consentinel/consent` → `app/routes/proxy.consent.tsx`),
       config via app-owned metafield (`consentinel.banner_config`, synced on
       settings/region saves).
-      **PENDING: merchant's final storefront test results** (banner display,
-      pre-consent blocking, GCM dataLayer, consent log rows). Everything is
-      deployed as version consentinel-7.
+      **VERIFIED 2026-07-14**: banner displays on the storefront, config
+      delivered, consent decision persists (no re-prompt on reload — by
+      design). Debug learnings: Brave Shields' cookie-notice filter hides
+      consent banners entirely (fail-closed = compliant, but test with
+      Shields off or another browser); once any banner records a decision,
+      ours stays hidden until `_tracking_consent` is cleared.
+      Remaining step-5 spot checks: consent-log row appears after a fresh
+      accept/reject, GCM dataLayer entries, script-blocker release.
 - [x] **6. Compliance webhooks** — routes for CUSTOMERS_DATA_REQUEST,
       CUSTOMERS_REDACT (both honest no-ops: the consent log stores no PII),
       SHOP_REDACT (purges all shop rows in a transaction; APP_UNINSTALLED
@@ -58,26 +95,75 @@ banner, genuine pre-consent script blocking, Google Consent Mode v2, Polaris
 
 ## Known follow-ups / open items
 
-- **Deploy pending**: session-2 changes (privacy webhooks config, scope trim
-  to `scopes = ""`, demo metafield/metaobject definitions removed,
-  `compliance_head` target restored) are code-complete but not deployed.
-  Run `shopify app deploy` (will prompt; --force skips) and release.
-  Scope trim may prompt a re-auth on next app open — expected.
-- **After deploy, verify `compliance_head`**: the embed must still list in
-  the theme editor's App embeds panel and the banner must still render.
-  If it disappears, the fallback is reverting the target to `head`.
-- Step 5 storefront test results still owed by merchant (banner display,
-  pre-consent blocking, GCM dataLayer, consent log rows).
+- **RESOLVED (2026-07-14): native banner + region coupling.** Merchant
+  disabled Shopify's native banner (Cookie banner → Regions → "Not visible
+  in any region" — that IS the off switch; there's no separate toggle),
+  which also silenced `shouldShowBanner()` and hid OUR banner. Fixed by
+  making the storefront resolve regions itself (v2 config): enabled region
+  rules ship in the metafield, visitor country comes from
+  `localization.country` in the embed Liquid, and the script merges its own
+  resolution with Shopify's signals (either can trigger). US visitors map to
+  any enabled US-* rule (opt_out wins on mixed modes) since states can't be
+  resolved client-side. Also added: `?consentinel_preview=1` preview mode
+  (force-renders, clicks dismiss without recording) and region codes
+  (EU/UK/US) in logged consent events. "Not visible in any region" is now
+  the CORRECT permanent setting for the native banner.
+  **Needs: `shopify app deploy` + one Save in Banner settings to write the
+  v2 metafield (regions array).**
 - Billing flow test owed by merchant: upgrade → approve test charge → Pro
   unlocks (regions editable, branding toggle) → cancel → downgrade forces
   branding back on.
-- Storefront region logging is coarse (mode only, region often null) — decide
-  whether to enrich (e.g., via `Shopify.country` heuristics) or document.
-- Both banners can appear (ours + Shopify's native cookie banner) now that
-  cookie-banner regions are configured — verify and disable the native banner
-  display if it shows (Settings → Customer privacy → Cookie banner).
+- Step-5 spot checks owed: consent-log row after a fresh accept/reject, GCM
+  dataLayer entries, script-blocker release on consent.
+- **Banner redesign + geo accuracy (2026-07-14 later session, verified in a
+  local harness with screenshots — light/dark, opt-in/opt-out, modal,
+  preferences view, mobile)**: hardened every banner element against theme
+  CSS bleed (explicit font/color/letter-spacing; fixes dark-theme heading
+  rendering theme-dark and the theme's letter-spacing leaking into links),
+  polished the design to native-banner quality (radius 16, layered shadow,
+  hover states, backdrop blur on modal overlay, mobile bottom-sheet
+  behavior), animation is opacity-only (transform used to fight modal
+  centering). Visitor country now comes from
+  `/browsing_context_suggestions` IP geolocation (1.5s timeout →
+  `localization.country` fallback — the market country wrongly reports the
+  primary market for visitors outside all markets, e.g. PH visitor on a
+  US-market store looked like US and got the opt-out banner).
+  `?consentinel_preview=1` now always previews the customizable opt-in
+  banner; `=opt_out` previews the US variant. Modal overlay confirmed
+  working in the harness — its absence in the merchant's Brave screenshot
+  was browser-side.
+- v2 metafield confirmed live in production: the banner displayed via local
+  region resolution with the native banner fully disabled.
+- **Modal backdrop mystery SOLVED**: the dim layer was hidden client-side by
+  adblock annoyance lists matching the class name `cstl-overlay` (harness
+  rendered it fine). Renamed to `cstl-scrim` — never name storefront
+  elements "overlay"/"backdrop"/"cookie". Focus ring switched to
+  currentColor (accent-colored ring was invisible on dark).
+- **Merchant logo on banner (Pro)** shipped 2026-07-15: `ShopSettings.logoUrl`
+  (+ migration `add_logo_url`), Banner-settings "Logo URL" field (disabled on
+  free with upgrade hint; server ignores the field on free), forced null in
+  storefront config on free (`canUseLogo` in billing.server.ts is the one
+  place to change the gating), rendered above the heading (36px cap) in
+  banner + admin live preview + Pro plan-page bullet. Merchants upload via
+  Content → Files and paste the URL. Verified in the harness (dark modal +
+  scrim + logo screenshot). Bundle now 14.4KB (<15KB budget).
+- Embedded admin currently shows "refused to connect": application_url
+  points at a dead tunnel (a failed non-interactive dev-server start updated
+  the URL before dying at the storefront-password prompt). Fix: run
+  `shopify app dev` from an interactive terminal.
+- Fresh installs that never hit Save have no config metafield; with the
+  native banner off, the script's fallback signals are silent → no banner
+  until first save. Follow-up: sync the metafield on install/first app open.
+- **Dev quirks (2026-07-14)**: (a) `shopify app deploy` pushes the toml's
+  placeholder `application_url` (example.com), breaking the embedded admin
+  until the dev server restarts and re-patches the URL. (b) The CLI 4.5.0
+  upgrade dropped the cached storefront password — `shopify app dev` now
+  prompts for it, so it must be started from an interactive terminal once
+  to re-cache.
 - Consider APP_SUBSCRIPTIONS_UPDATE webhook for instant plan-cache sync
   (currently reconciled on app-open; fine for review).
+- Deployed 2026-07-14 by merchant: privacy webhooks config, scopes = "",
+  demo definitions removed, compliance_head target (all released).
 
 ## Environment quirks (this machine)
 

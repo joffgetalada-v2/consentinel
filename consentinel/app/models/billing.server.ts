@@ -47,6 +47,11 @@ export function canRemoveBranding(plan: string): boolean {
   return plan === "paid";
 }
 
+/** Showing the merchant's own logo on the banner is Pro only. */
+export function canUseLogo(plan: string): boolean {
+  return plan === "paid";
+}
+
 // ---------------------------------------------------------------------------
 // Plan cache reconciliation
 // ---------------------------------------------------------------------------
