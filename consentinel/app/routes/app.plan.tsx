@@ -14,7 +14,13 @@ import type {
   HeadersFunction,
   LoaderFunctionArgs,
 } from "react-router";
-import { useFetcher, useLoaderData, useNavigation, useSubmit } from "react-router";
+import {
+  useActionData,
+  useFetcher,
+  useLoaderData,
+  useNavigation,
+  useSubmit,
+} from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
@@ -53,12 +59,27 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const intent = String(form.get("intent") ?? "");
 
   if (intent === "upgrade") {
-    // Redirects to Shopify's confirmation page; never returns.
-    await billing.request({
-      plan: PRO_PLAN,
-      isTest: BILLING_TEST_MODE,
-      returnUrl: `${process.env.SHOPIFY_APP_URL}/app/plan`,
-    });
+    try {
+      // On success this throws the redirect Response to Shopify's
+      // subscription confirmation page — it never returns normally.
+      await billing.request({
+        plan: PRO_PLAN,
+        isTest: BILLING_TEST_MODE,
+        returnUrl: `${process.env.SHOPIFY_APP_URL}/app/plan`,
+      });
+    } catch (error) {
+      if (error instanceof Response) throw error; // the confirmation redirect
+      // BillingError carries appSubscriptionCreate's userErrors in errorData
+      // (e.g. "Apps without a public distribution cannot use the Billing
+      // API" until the Partner Dashboard distribution method is chosen).
+      const userErrors = (error as { errorData?: { message?: string }[] }).errorData;
+      const detail =
+        (Array.isArray(userErrors) &&
+          userErrors.map((userError) => userError?.message).filter(Boolean).join("; ")) ||
+        (error instanceof Error ? error.message : "Unknown billing error");
+      console.error("[consentinel] billing request failed:", detail);
+      return { ok: false as const, message: `Upgrade failed: ${detail}` };
+    }
   }
 
   if (intent === "cancel") {
@@ -108,6 +129,15 @@ export default function Plan() {
       });
     }
   }, [fetcher.state, fetcher.data, shopify]);
+
+  // The upgrade button submits as a navigation (billing redirects on
+  // success), so its failures arrive via actionData rather than the fetcher.
+  const actionData = useActionData<typeof action>();
+  useEffect(() => {
+    if (actionData && !actionData.ok) {
+      shopify.toast.show(actionData.message, { isError: true });
+    }
+  }, [actionData, shopify]);
 
   return (
     <s-page heading="Plan">
