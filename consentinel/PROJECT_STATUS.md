@@ -1,26 +1,36 @@
 # Consentinel — Project Status & Handoff
 
-_Last updated: 2026-07-15 (end of session 2)._
+_Last updated: 2026-07-18 (session 3)._
 
-## ⏸ SESSION-2 STOPPING POINT — resume here
+## ⏸ SESSION-3 STOPPING POINT — resume here
 
-1. **IN FLIGHT, verification incomplete**: bottom-bar layout fix (bar is now
-   centered, max-width 960, content left / buttons right via `.cstl-main`
-   flex; stacks under 760px) + custom checkboxes (appearance:none, checked =
-   text-on-surface check, whole row is a `<label>` click target) — built
-   because the merchant reported dead space in the wide bottom bar and
-   unclear checkboxes on dark. Code is written, bundle builds (15.7KB min /
-   5.9KB gzip — budget restated to ≤16KB/~6KB in comments), typecheck+lint
-   clean, **but the visual harness check was interrupted**. Resume:
-   `scratchpad` harness pattern (see "Local banner harness" below), verify
-   `?theme=dark&position=bottom_bar&country=DE` main + Customize views,
-   light + mobile spot checks, then merchant deploys.
-2. **NOTHING SINCE COMMIT 82761d6 IS COMMITTED** — commit early next session.
-3. **NOT YET DEPLOYED** (merchant runs `shopify app deploy`): scrim rename,
-   focus-ring fix, Pro logo feature, bottom-bar layout + checkbox fixes.
-4. Merchant tests still owed: bottom-bar + modal layouts after deploy,
-   consent-log row after a fresh accept, GCM dataLayer entries, billing
-   upgrade/cancel flow, logo URL end-to-end (needs Pro).
+1. **Bottom-bar layout + checkbox fix VERIFIED in the harness (2026-07-18)**:
+   dark bottom_bar main + Customize, light desktop, mobile 375px, US opt-out
+   bar, center_modal + logo + scrim — all screenshot-checked. The harness
+   also caught and we fixed four NEW theme-bleed leaks the hardening missed
+   (`text-transform`/`text-decoration`/`font` not pinned on `.cstl-body a`,
+   `.cstl-catrow`, `.cstl-cat b/small`; `transform` not reset on
+   `.cstl-toggle` — a theme `input{transform:scale(2)}` doubled checkbox
+   size), plus two mobile issues (buttons squeezed onto one row by `flex:1`
+   basis-0 → "Accept all" wrapped to 2 lines; fixed with `flex:1 1 40%` +
+   tighter padding under 520px) and added a double-click guard in
+   submitConsent so rapid clicks can't write duplicate audit-log rows.
+   Bundle 16368B min (just under the 16KiB budget — ~0 headroom left) /
+   6.0KB gzip. Typecheck + lint clean. Committed.
+2. **NOT YET DEPLOYED** (merchant runs
+   `PATH="/usr/local/opt/node@22/bin:$PATH" ~/.npm-global/bin/shopify app deploy --allow-updates`
+   from `consentinel/`): scrim rename, focus-ring fix, Pro logo feature,
+   bottom-bar layout + checkbox fixes, theme-bleed leak fixes, mobile action
+   layout, double-click guard.
+3. Merchant tests owed after deploy: bottom-bar spacing + checkbox clarity
+   on the real storefront (the original report), modal layout, consent-log
+   row after a fresh accept, GCM dataLayer entries, billing upgrade/cancel
+   flow, logo URL end-to-end (needs Pro).
+4. Harness tip learned this session: cache-bust the bundle script tag
+   (`consent-banner.js?v=<Date.now()>` via document.write) or the browser
+   re-runs a stale cached bundle after rebuilds; the Claude-browser console
+   reader duplicates every message (a single log line appears twice), and
+   only ref-based/JS clicks land — raw coordinate clicks silently miss.
 
 ## Local banner harness (how to verify banner UI without the store)
 

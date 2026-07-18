@@ -510,6 +510,9 @@ function whenBodyReady(callback: () => void): void {
 // 4. Consent submission + event logging
 // ---------------------------------------------------------------------------
 
+/** Guards against double-clicks writing duplicate audit-log entries. */
+let submitting = false;
+
 function submitConsent(
   api: CustomerPrivacy,
   mode: "opt_in" | "opt_out",
@@ -522,12 +525,17 @@ function submitConsent(
     removeBanner();
     return;
   }
+  if (submitting) return;
+  submitting = true;
 
   const input: TrackingConsentInput = { ...categories };
   if (saleOfData !== null) input.sale_of_data = saleOfData;
 
   api.setTrackingConsent(input, (error) => {
-    if (error) return; // Privacy API unavailable — keep everything blocked.
+    if (error) {
+      submitting = false; // Privacy API unavailable — keep blocked, allow retry.
+      return;
+    }
     applyGrants(categories);
     logEvent(mode, action, categories, saleOfData);
     removeBanner();
@@ -642,8 +650,8 @@ function styles(): string {
   margin:0 0 12px;border:0;padding:0}
 .cstl-banner .cstl-heading{font:600 16px/1.3 ${font};letter-spacing:-.01em;color:${text};
   margin:0 0 8px;padding:0;text-transform:none}
-.cstl-banner .cstl-body{font:400 14px/1.55 ${font};letter-spacing:normal;color:${subdued};margin:0 0 16px;padding:0;max-width:62ch}
-.cstl-banner .cstl-body a{color:${text};text-decoration:underline;text-underline-offset:2px}
+.cstl-banner .cstl-body{font:400 14px/1.55 ${font};letter-spacing:normal;text-transform:none;color:${subdued};margin:0 0 16px;padding:0;max-width:62ch}
+.cstl-banner .cstl-body a{font:inherit;letter-spacing:normal;text-transform:none;color:${text};text-decoration:underline;text-underline-offset:2px}
 .cstl-banner .cstl-body a:hover{color:${accent}}
 .cstl-main{display:flex;flex-direction:column}
 .cstl-banner--bottom_bar .cstl-main{flex-direction:row;align-items:center;justify-content:space-between;gap:28px}
@@ -665,13 +673,13 @@ function styles(): string {
 .cstl-cats{display:flex;flex-direction:column;gap:8px;margin:0 0 16px;padding:0;list-style:none}
 .cstl-banner .cstl-cat{border:1px solid ${border};border-radius:10px;padding:0;margin:0;list-style:none}
 .cstl-banner .cstl-catrow{display:flex;justify-content:space-between;align-items:center;gap:12px;
-  padding:11px 14px;margin:0;cursor:pointer;font:inherit}
+  padding:11px 14px;margin:0;cursor:pointer;font:inherit;text-decoration:none;text-transform:none}
 .cstl-banner .cstl-catrow--locked{cursor:default}
-.cstl-banner .cstl-cat b{font:600 13.5px/1.4 ${font};letter-spacing:normal;color:${text};display:block}
-.cstl-banner .cstl-cat small{display:block;font:400 12.5px/1.45 ${font};letter-spacing:normal;color:${subdued};margin-top:1px}
+.cstl-banner .cstl-cat b{font:600 13.5px/1.4 ${font};letter-spacing:normal;text-transform:none;text-decoration:none;color:${text};display:block}
+.cstl-banner .cstl-cat small{display:block;font:400 12.5px/1.45 ${font};letter-spacing:normal;text-transform:none;text-decoration:none;color:${subdued};margin-top:1px}
 .cstl-banner .cstl-toggle{appearance:none;-webkit-appearance:none;width:20px;height:20px;margin:0;
   flex:none;border:2px solid ${subdued};border-radius:6px;background:transparent;cursor:pointer;
-  position:relative;transition:background-color .15s ease,border-color .15s ease}
+  position:relative;transform:none;transition:background-color .15s ease,border-color .15s ease}
 .cstl-banner .cstl-toggle:checked{background:${text};border-color:${text}}
 .cstl-banner .cstl-toggle:checked::after{content:"";position:absolute;left:4.5px;top:1px;width:5px;
   height:10px;border:solid ${surface};border-width:0 2px 2px 0;transform:rotate(45deg)}
@@ -680,7 +688,7 @@ function styles(): string {
 @media (max-width:760px){.cstl-banner--bottom_bar .cstl-main{flex-direction:column;align-items:stretch;gap:0}
   .cstl-banner--bottom_bar .cstl-body{margin:0 0 16px}}
 @media (max-width:520px){.cstl-banner{left:12px;right:12px;bottom:12px;width:auto;max-width:none;padding:18px;
-  transform:none;top:auto}.cstl-actions .cstl-btn{flex:1;text-align:center}}
+  transform:none;top:auto}.cstl-actions .cstl-btn{flex:1 1 40%;text-align:center;padding:11px 12px}}
 @media (prefers-reduced-motion:no-preference){.cstl-banner{animation:cstl-in .28s cubic-bezier(.16,1,.3,1)}}
 @keyframes cstl-in{from{opacity:0}to{opacity:1}}
 `;
