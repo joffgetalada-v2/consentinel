@@ -4,8 +4,13 @@ _Last updated: 2026-07-18 (session 3)._
 
 ## ⏸ SESSION-3 STOPPING POINT — resume here
 
--2. **NEWEST (2026-07-19 later): logo width + modal width + dirty-save,
-   NOT deployed.** logoSize reinterpreted as WIDTH px (text field, clamped
+-2. **NEWEST (2026-07-19 later): logo width + modal/card width + dirty-save
+   + position-scoped width controls, NOT deployed.** ShopSettings.cardWidth
+   (280–600, default 400) sizes the bottom-left/right cards; the Advanced
+   styling section now shows ONLY the width control matching the selected
+   position (bar select / modal field / card field). Harness-verified
+   560px dark card with 140px side logo. Bundle 17351B min / 6.4KB gzip
+   (focus-visible rules merged to pay for it). logoSize reinterpreted as WIDTH px (text field, clamped
    20–200, migration resets existing rows to 120 — height now scales with
    the image, fixing the "logo looks small/cramped" report); new
    ShopSettings.modalWidth (text field, 320–720, default 460) drives the

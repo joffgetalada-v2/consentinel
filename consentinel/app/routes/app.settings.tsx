@@ -81,6 +81,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           buttonFontSize: Number(form.get("buttonFontSize")),
           borderWidth: Number(form.get("borderWidth")),
           modalWidth: Number(form.get("modalWidth")),
+          cardWidth: Number(form.get("cardWidth")),
         }
       : {}),
   };
@@ -149,6 +150,7 @@ function formStateFrom(
     buttonFontSize: String(settings.buttonFontSize),
     borderWidth: String(settings.borderWidth),
     modalWidth: String(settings.modalWidth),
+    cardWidth: String(settings.cardWidth),
   };
 }
 
@@ -373,27 +375,40 @@ export default function Settings() {
               </s-text>
             </s-paragraph>
           )}
-          <s-select
-            label="Bottom bar width"
-            value={form.bannerWidth}
-            onChange={set("bannerWidth")}
-            {...(!canEditStyling ? { disabled: true } : {})}
-            details="Only applies to the Bottom bar position."
-          >
-            {BANNER_WIDTHS.map((width) => (
-              <s-option key={width} value={width}>
-                {WIDTH_LABELS[width]}
-              </s-option>
-            ))}
-          </s-select>
-          <s-text-field
-            label="Modal width (px)"
-            value={form.modalWidth}
-            onInput={set("modalWidth")}
-            error={errorFor("modalWidth")}
-            {...(!canEditStyling ? { disabled: true } : {})}
-            details={`${STYLE_LIMITS.modalWidth.min}–${STYLE_LIMITS.modalWidth.max}px. Only applies to the Centered modal position; small screens always fit the viewport.`}
-          />
+          {form.position === "bottom_bar" && (
+            <s-select
+              label="Bottom bar width"
+              value={form.bannerWidth}
+              onChange={set("bannerWidth")}
+              {...(!canEditStyling ? { disabled: true } : {})}
+            >
+              {BANNER_WIDTHS.map((width) => (
+                <s-option key={width} value={width}>
+                  {WIDTH_LABELS[width]}
+                </s-option>
+              ))}
+            </s-select>
+          )}
+          {form.position === "center_modal" && (
+            <s-text-field
+              label="Modal width (px)"
+              value={form.modalWidth}
+              onInput={set("modalWidth")}
+              error={errorFor("modalWidth")}
+              {...(!canEditStyling ? { disabled: true } : {})}
+              details={`${STYLE_LIMITS.modalWidth.min}–${STYLE_LIMITS.modalWidth.max}px. Small screens always fit the viewport.`}
+            />
+          )}
+          {(form.position === "bottom_left" || form.position === "bottom_right") && (
+            <s-text-field
+              label="Card width (px)"
+              value={form.cardWidth}
+              onInput={set("cardWidth")}
+              error={errorFor("cardWidth")}
+              {...(!canEditStyling ? { disabled: true } : {})}
+              details={`${STYLE_LIMITS.cardWidth.min}–${STYLE_LIMITS.cardWidth.max}px. Small screens always fit the viewport.`}
+            />
+          )}
           <s-select
             label="Font"
             value={form.fontFamily}
@@ -472,6 +487,7 @@ export default function Settings() {
           buttonFontSize={canEditStyling ? Number(form.buttonFontSize) || 14 : 14}
           borderWidth={canEditStyling ? Number(form.borderWidth) || 0 : 1}
           modalWidth={canEditStyling ? Number(form.modalWidth) || 460 : 460}
+          cardWidth={canEditStyling ? Number(form.cardWidth) || 400 : 400}
         />
         <s-paragraph>
           <s-text color="subdued">

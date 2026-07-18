@@ -68,6 +68,8 @@ interface ConsentinelConfig {
   logoPosition: "top" | "left" | "right";
   /** Centered-modal width in px (still capped at viewport - 32). */
   modalWidth: number;
+  /** Bottom-left/right card width in px. */
+  cardWidth: number;
   position: "bottom_bar" | "bottom_left" | "bottom_right" | "center_modal";
   themePreset: "light" | "dark";
   accentColor: string;
@@ -124,6 +126,7 @@ const DEFAULTS: ConsentinelConfig = {
   logoSize: 120,
   logoPosition: "top",
   modalWidth: 460,
+  cardWidth: 400,
   position: "bottom_bar",
   themePreset: "light",
   accentColor: "#1A1A1A",
@@ -652,6 +655,7 @@ function styles(): string {
   const bw = num(config.borderWidth, 0, 3, 1);
   const ls = num(config.logoSize, 20, 200, 120);
   const mw = num(config.modalWidth, 320, 720, 460);
+  const cw = num(config.cardWidth, 280, 600, 400);
   // Every element sets font via shorthand (so theme element selectors can't
   // leak in); when the merchant picks "match my theme's font", a trailing
   // font-family:inherit re-adopts the theme typeface while keeping our
@@ -665,8 +669,8 @@ function styles(): string {
     // zone on large screens (text is capped at 62ch).
     bottom_bar:
       "left:50%;transform:translateX(-50%);bottom:16px;width:calc(100vw - 32px);max-width:960px;",
-    bottom_left: "left:16px;bottom:16px;max-width:400px;",
-    bottom_right: "right:16px;bottom:16px;max-width:400px;",
+    bottom_left: `left:16px;bottom:16px;max-width:${cw}px;`,
+    bottom_right: `right:16px;bottom:16px;max-width:${cw}px;`,
     center_modal:
       `left:50%;top:50%;transform:translate(-50%,-50%);width:min(${mw}px,calc(100vw - 32px));`,
   }[config.position] ?? "left:16px;right:16px;bottom:16px;";
@@ -707,13 +711,13 @@ function styles(): string {
   padding:11px 20px;cursor:pointer;border:1px solid ${border};background:transparent;color:${text};
   margin:0;text-transform:none;min-height:0;transition:background-color .15s ease,filter .15s ease}
 .cstl-banner .cstl-btn:hover{background:${hover}}
-.cstl-banner .cstl-btn:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.cstl-banner .cstl-btn:focus-visible,.cstl-banner .cstl-link:focus-visible,
+.cstl-banner .cstl-toggle:focus-visible{outline:2px solid currentColor;outline-offset:2px}
 .cstl-banner .cstl-btn--primary{background:${accent};border-color:${accent};color:${accentText}}
 .cstl-banner .cstl-btn--primary:hover{background:${accent};filter:brightness(1.12)}
 .cstl-banner .cstl-link{${f(500, bfs, 1)}letter-spacing:normal;background:none;border:none;padding:11px 4px;margin:0;
   cursor:pointer;color:${subdued};text-decoration:underline;text-underline-offset:2px;text-transform:none}
 .cstl-banner .cstl-link:hover{color:${text}}
-.cstl-banner .cstl-link:focus-visible{outline:2px solid currentColor;outline-offset:2px}
 .cstl-banner .cstl-brand{margin:14px 0 0;${f(400, 11, 1)}letter-spacing:normal;color:${subdued};opacity:.85}
 .cstl-cats{display:flex;flex-direction:column;gap:8px;margin:0 0 16px;padding:0;list-style:none}
 .cstl-banner .cstl-cat{border:1px solid ${border};border-radius:10px;padding:0;margin:0;list-style:none}
@@ -729,7 +733,6 @@ function styles(): string {
 .cstl-banner .cstl-toggle:checked::after{content:"";position:absolute;left:4.5px;top:1px;width:5px;
   height:10px;border:solid ${surface};border-width:0 2px 2px 0;transform:rotate(45deg)}
 .cstl-banner .cstl-toggle:disabled{opacity:.5;cursor:not-allowed}
-.cstl-banner .cstl-toggle:focus-visible{outline:2px solid currentColor;outline-offset:2px}
 @media (max-width:760px){.cstl-banner--bottom_bar .cstl-main{flex-direction:column;align-items:stretch;gap:0}
   .cstl-banner--bottom_bar .cstl-body{margin:0 0 16px}}
 @media (max-width:520px){.cstl-banner{left:12px;right:12px;bottom:12px;width:auto;max-width:none;padding:18px;

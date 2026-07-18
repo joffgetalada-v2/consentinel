@@ -48,6 +48,8 @@ export const STYLE_LIMITS = {
   logoSize: { min: 20, max: 200, fallback: 120 },
   /** Centered-modal width in px; the storefront still caps at viewport - 32. */
   modalWidth: { min: 320, max: 720, fallback: 460 },
+  /** Bottom-left/right card width in px. */
+  cardWidth: { min: 280, max: 600, fallback: 400 },
 } as const;
 
 export function clampStyle(

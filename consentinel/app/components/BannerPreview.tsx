@@ -41,6 +41,7 @@ export interface BannerPreviewProps {
   buttonFontSize: number;
   borderWidth: number;
   modalWidth: number;
+  cardWidth: number;
 }
 
 const PREVIEW_HEIGHT = 340;
@@ -68,7 +69,7 @@ export function BannerPreview(props: BannerPreviewProps) {
     fontSize: scaledFont,
     lineHeight: 1.45,
     position: "absolute",
-    ...positionStyles(props.position, props.bannerWidth, props.modalWidth),
+    ...positionStyles(props.position, props.bannerWidth, props.modalWidth, props.cardWidth),
   };
 
   return (
@@ -205,16 +206,19 @@ function positionStyles(
   position: BannerPosition,
   bannerWidth: BannerWidth,
   modalWidth: number,
+  cardWidth: number,
 ): React.CSSProperties {
+  // Miniature scale of the real card width for the preview frame.
+  const scaledCard = Math.round(cardWidth * 0.7);
   switch (position) {
     case "bottom_bar":
       return bannerWidth === "full"
         ? { left: 0, right: 0, bottom: 0 }
         : { left: 10, right: 10, bottom: 10 };
     case "bottom_left":
-      return { left: 10, bottom: 10, maxWidth: 280 };
+      return { left: 10, bottom: 10, maxWidth: scaledCard };
     case "bottom_right":
-      return { right: 10, bottom: 10, maxWidth: 280 };
+      return { right: 10, bottom: 10, maxWidth: scaledCard };
     case "center_modal":
       return {
         left: "50%",

@@ -40,6 +40,7 @@ interface StorefrontConfig {
   buttonFontSize: number;
   borderWidth: number;
   modalWidth: number;
+  cardWidth: number;
   showBranding: boolean;
   optIn: boolean;
   optOut: boolean;
@@ -80,6 +81,7 @@ export async function buildStorefrontConfig(shop: string): Promise<StorefrontCon
       : STYLE_LIMITS.buttonFontSize.fallback,
     borderWidth: styled ? settings.borderWidth : STYLE_LIMITS.borderWidth.fallback,
     modalWidth: styled ? settings.modalWidth : STYLE_LIMITS.modalWidth.fallback,
+    cardWidth: styled ? settings.cardWidth : STYLE_LIMITS.cardWidth.fallback,
     // Belt-and-braces: branding removal is a paid feature, so the free plan
     // always renders the credit even if the cached flag is stale.
     showBranding: settings.plan === "paid" ? settings.showBranding : true,

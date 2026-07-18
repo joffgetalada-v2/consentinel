@@ -74,6 +74,7 @@ model ShopSettings {
   buttonFontSize Int    @default(14) // button label px; clamped 12–18
   borderWidth    Int    @default(1) // banner/card border px; clamped 0–3
   modalWidth     Int    @default(460) // centered-modal width px; clamped 320–720
+  cardWidth      Int    @default(400) // bottom-left/right card width px; clamped 280–600
 
   // Billing state (managed via the Shopify Billing API — never hardcoded charges).
   // `plan` is a cached copy of the subscription check for cheap feature gating;
