@@ -4,6 +4,25 @@ _Last updated: 2026-07-18 (session 3)._
 
 ## ⏸ SESSION-3 STOPPING POINT — resume here
 
+0. **NEW (later in session 3): Advanced styling (Pro) + focus-ring fix,
+   harness-verified, NOT deployed.** Merchant asked for width/font/border
+   controls after seeing the deployed banner. Shipped: `bannerWidth`
+   (contained 960px | full edge-to-edge, bottom bar only), `fontFamily`
+   (system | theme — theme mode appends font-family:inherit after every
+   font shorthand), `fontSize` + `buttonFontSize` (12–18px), `borderWidth`
+   (0–3px, banner container only; buttons/cards keep 1px). New ShopSettings
+   columns + migration `add_style_settings`; gate = `canUseAdvancedStyling`
+   in billing.server.ts (free is forced to defaults in buildStorefrontConfig,
+   UI disabled with upgrade hint, action ignores fields); clamps shared in
+   types/consent.ts STYLE_LIMITS and re-clamped in the bundle. The "thick
+   border" the merchant reported was the autofocus focus-visible ring —
+   banner now focuses the panel (tabindex -1; trap patched so shift-Tab from
+   the panel wraps) and the position label "Bottom bar (full width)" was
+   renamed. Bundle budget RESTATED to ≤17KB min / ~6.2KB gzip (now 16933B /
+   6375B) — the old 16KiB budget had zero headroom. Merchant still needs:
+   `shopify app deploy`, then upgrade to Pro via TEST billing to try the
+   new settings (SHOPIFY_BILLING_TEST defaults on → no real charge).
+
 1. **Bottom-bar layout + checkbox fix VERIFIED in the harness (2026-07-18)**:
    dark bottom_bar main + Customize, light desktop, mobile 375px, US opt-out
    bar, center_modal + logo + scrim — all screenshot-checked. The harness

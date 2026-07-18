@@ -141,6 +141,7 @@ export default function Plan() {
           <s-paragraph>Everything in Free, plus:</s-paragraph>
           <s-paragraph>✓ Customize region rules (consent model per region, disable regions)</s-paragraph>
           <s-paragraph>✓ Show your company logo on the banner</s-paragraph>
+          <s-paragraph>✓ Advanced styling — banner width, fonts, and border thickness</s-paragraph>
           <s-paragraph>✓ Remove the &quot;Powered by&quot; branding credit</s-paragraph>
           {!isPaid && (
             <>

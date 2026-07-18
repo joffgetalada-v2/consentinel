@@ -23,6 +23,35 @@ export type BannerPosition = (typeof BANNER_POSITIONS)[number];
 export const THEME_PRESETS = ["light", "dark"] as const;
 export type ThemePreset = (typeof THEME_PRESETS)[number];
 
+/** Bottom-bar width: contained = centered with a 960px cap, full = edge-to-edge. */
+export const BANNER_WIDTHS = ["contained", "full"] as const;
+export type BannerWidth = (typeof BANNER_WIDTHS)[number];
+
+/** system = the OS-native UI stack; theme = inherit the storefront theme's font. */
+export const BANNER_FONTS = ["system", "theme"] as const;
+export type BannerFont = (typeof BANNER_FONTS)[number];
+
+/**
+ * Clamp ranges for the numeric styling settings (Pro). Shared by the admin
+ * validation, the config builder, and the storefront bundle so a crafted
+ * metafield can never inject out-of-range values into banner CSS.
+ */
+export const STYLE_LIMITS = {
+  fontSize: { min: 12, max: 18, fallback: 14 },
+  buttonFontSize: { min: 12, max: 18, fallback: 14 },
+  borderWidth: { min: 0, max: 3, fallback: 1 },
+} as const;
+
+export function clampStyle(
+  key: keyof typeof STYLE_LIMITS,
+  value: unknown,
+): number {
+  const { min, max, fallback } = STYLE_LIMITS[key];
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(n)));
+}
+
 // ---------------------------------------------------------------------------
 // Consent semantics
 // ---------------------------------------------------------------------------
@@ -140,6 +169,14 @@ export function isBannerPosition(value: string): value is BannerPosition {
 
 export function isThemePreset(value: string): value is ThemePreset {
   return (THEME_PRESETS as readonly string[]).includes(value);
+}
+
+export function isBannerWidth(value: string): value is BannerWidth {
+  return (BANNER_WIDTHS as readonly string[]).includes(value);
+}
+
+export function isBannerFont(value: string): value is BannerFont {
+  return (BANNER_FONTS as readonly string[]).includes(value);
 }
 
 export function isConsentMode(value: string): value is ConsentMode {

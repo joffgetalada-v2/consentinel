@@ -14,6 +14,8 @@
 import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 import { getShopSettings } from "./shopSettings.server";
 import { getRegionRules } from "./regionRules.server";
+import { canUseAdvancedStyling } from "./billing.server";
+import { STYLE_LIMITS } from "../types/consent";
 
 /** Shape consumed by app/storefront/consent-banner.ts */
 interface StorefrontConfig {
@@ -29,6 +31,12 @@ interface StorefrontConfig {
   position: string;
   themePreset: string;
   accentColor: string;
+  /** Advanced styling (Pro); the free plan always serves the defaults. */
+  bannerWidth: string;
+  fontFamily: string;
+  fontSize: number;
+  buttonFontSize: number;
+  borderWidth: number;
   showBranding: boolean;
   optIn: boolean;
   optOut: boolean;
@@ -46,6 +54,7 @@ export async function buildStorefrontConfig(shop: string): Promise<StorefrontCon
     getShopSettings(shop),
     getRegionRules(shop),
   ]);
+  const styled = canUseAdvancedStyling(settings.plan);
   return {
     v: 2,
     heading: settings.heading,
@@ -58,6 +67,13 @@ export async function buildStorefrontConfig(shop: string): Promise<StorefrontCon
     position: settings.position,
     themePreset: settings.themePreset,
     accentColor: settings.accentColor,
+    bannerWidth: styled ? settings.bannerWidth : "contained",
+    fontFamily: styled ? settings.fontFamily : "system",
+    fontSize: styled ? settings.fontSize : STYLE_LIMITS.fontSize.fallback,
+    buttonFontSize: styled
+      ? settings.buttonFontSize
+      : STYLE_LIMITS.buttonFontSize.fallback,
+    borderWidth: styled ? settings.borderWidth : STYLE_LIMITS.borderWidth.fallback,
     // Belt-and-braces: branding removal is a paid feature, so the free plan
     // always renders the credit even if the cached flag is stale.
     showBranding: settings.plan === "paid" ? settings.showBranding : true,

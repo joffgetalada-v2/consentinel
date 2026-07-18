@@ -11,7 +11,7 @@
  * extension banner built in step 5 — it is the merchant's only feedback
  * loop while configuring.
  */
-import type { BannerPosition, ThemePreset } from "../types/consent";
+import type { BannerPosition, BannerWidth, ThemePreset } from "../types/consent";
 
 export interface BannerPreviewProps {
   heading: string;
@@ -26,6 +26,13 @@ export interface BannerPreviewProps {
   themePreset: ThemePreset;
   accentColor: string;
   showBranding: boolean;
+  /** Advanced styling (Pro); callers pass the defaults on the free plan.
+   * The theme-font option is deliberately not previewed — the admin can't
+   * know the storefront theme's typeface. */
+  bannerWidth: BannerWidth;
+  fontSize: number;
+  buttonFontSize: number;
+  borderWidth: number;
 }
 
 const PREVIEW_HEIGHT = 340;
@@ -37,19 +44,23 @@ export function BannerPreview(props: BannerPreviewProps) {
   const subdued = dark ? "#a3a3a3" : "#616161";
   const border = dark ? "#3d3d3d" : "#e3e3e3";
 
+  // The preview frame is a miniature, so real px sizes render 2px smaller.
+  const scaledFont = Math.max(9, props.fontSize - 2);
+  const scaledButtonFont = Math.max(9, props.buttonFontSize - 2);
+
   const card: React.CSSProperties = {
     background: surface,
     color: text,
-    border: `1px solid ${border}`,
-    borderRadius: 10,
+    border: props.borderWidth === 0 ? "none" : `${props.borderWidth}px solid ${border}`,
+    borderRadius: props.position === "bottom_bar" && props.bannerWidth === "full" ? 0 : 10,
     boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
     padding: 14,
     fontFamily:
       "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    fontSize: 12,
+    fontSize: scaledFont,
     lineHeight: 1.45,
     position: "absolute",
-    ...positionStyles(props.position),
+    ...positionStyles(props.position, props.bannerWidth),
   };
 
   return (
@@ -84,7 +95,7 @@ export function BannerPreview(props: BannerPreviewProps) {
             style={{ display: "block", maxHeight: 24, maxWidth: 120, marginBottom: 8 }}
           />
         ) : null}
-        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>
+        <div style={{ fontWeight: 600, fontSize: scaledFont + 1, marginBottom: 4 }}>
           {props.heading || "…"}
         </div>
         <div style={{ color: subdued, marginBottom: 10 }}>
@@ -106,6 +117,7 @@ export function BannerPreview(props: BannerPreviewProps) {
               borderRadius: 6,
               padding: "6px 12px",
               fontWeight: 600,
+              fontSize: scaledButtonFont,
             }}
           >
             {props.acceptLabel || "…"}
@@ -117,6 +129,7 @@ export function BannerPreview(props: BannerPreviewProps) {
               borderRadius: 6,
               padding: "6px 12px",
               fontWeight: 600,
+              fontSize: scaledButtonFont,
             }}
           >
             {props.rejectLabel || "…"}
@@ -135,10 +148,15 @@ export function BannerPreview(props: BannerPreviewProps) {
   );
 }
 
-function positionStyles(position: BannerPosition): React.CSSProperties {
+function positionStyles(
+  position: BannerPosition,
+  bannerWidth: BannerWidth,
+): React.CSSProperties {
   switch (position) {
     case "bottom_bar":
-      return { left: 10, right: 10, bottom: 10 };
+      return bannerWidth === "full"
+        ? { left: 0, right: 0, bottom: 0 }
+        : { left: 10, right: 10, bottom: 10 };
     case "bottom_left":
       return { left: 10, bottom: 10, maxWidth: 280 };
     case "bottom_right":

@@ -7,7 +7,10 @@
 import type { ShopSettings } from "@prisma/client";
 import prisma from "../db.server";
 import {
+  STYLE_LIMITS,
+  isBannerFont,
   isBannerPosition,
+  isBannerWidth,
   isHexColor,
   isPolicyUrl,
   isThemePreset,
@@ -41,6 +44,12 @@ export interface ShopSettingsInput {
   position?: string;
   themePreset?: string;
   accentColor?: string;
+  /** Advanced styling (Pro) — callers must gate on canUseAdvancedStyling. */
+  bannerWidth?: string;
+  fontFamily?: string;
+  fontSize?: number;
+  buttonFontSize?: number;
+  borderWidth?: number;
   onboardingDismissed?: boolean;
 }
 
@@ -110,6 +119,26 @@ export function validateShopSettingsInput(
   if (input.accentColor !== undefined && !isHexColor(input.accentColor)) {
     errors.push({ field: "accentColor", message: "Enter a hex color like #1A1A1A" });
   }
+
+  if (input.bannerWidth !== undefined && !isBannerWidth(input.bannerWidth)) {
+    errors.push({ field: "bannerWidth", message: "Unknown banner width" });
+  }
+  if (input.fontFamily !== undefined && !isBannerFont(input.fontFamily)) {
+    errors.push({ field: "fontFamily", message: "Unknown font option" });
+  }
+  const requireRange = (
+    field: "fontSize" | "buttonFontSize" | "borderWidth",
+    value: number | undefined,
+  ) => {
+    if (value === undefined) return;
+    const { min, max } = STYLE_LIMITS[field];
+    if (!Number.isInteger(value) || value < min || value > max) {
+      errors.push({ field, message: `Must be a whole number between ${min} and ${max}` });
+    }
+  };
+  requireRange("fontSize", input.fontSize);
+  requireRange("buttonFontSize", input.buttonFontSize);
+  requireRange("borderWidth", input.borderWidth);
 
   return errors;
 }

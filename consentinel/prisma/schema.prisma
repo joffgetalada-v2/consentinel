@@ -64,6 +64,14 @@ model ShopSettings {
   themePreset String @default("light") // light | dark
   accentColor String @default("#1A1A1A") // hex, validated in the model layer
 
+  // Advanced styling (Pro feature — free plan always serves these defaults;
+  // gate is canUseAdvancedStyling in app/models/billing.server.ts)
+  bannerWidth    String @default("contained") // contained (960px cap) | full — bottom bar only
+  fontFamily     String @default("system") // system | theme (inherit the theme's font)
+  fontSize       Int    @default(14) // banner body px; clamped 12–18 in the model layer
+  buttonFontSize Int    @default(14) // button label px; clamped 12–18
+  borderWidth    Int    @default(1) // banner/card border px; clamped 0–3
+
   // Billing state (managed via the Shopify Billing API — never hardcoded charges).
   // `plan` is a cached copy of the subscription check for cheap feature gating;
   // the source of truth is always the Billing API (re-verified on load).

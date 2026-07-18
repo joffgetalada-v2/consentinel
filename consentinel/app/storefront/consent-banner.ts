@@ -15,8 +15,8 @@
  *      setTrackingConsent(), update Consent Mode, release blocked scripts
  *      for granted categories, and log the event via the app proxy.
  *
- * Deliberately dependency-free vanilla TypeScript; target bundle ≤ 16KB
- * minified (~6KB gzipped — the number that matters on the wire).
+ * Deliberately dependency-free vanilla TypeScript; target bundle ≤ 17KB
+ * minified (~6.2KB gzipped — the number that matters on the wire).
  * Consent state lives exclusively in Shopify's Customer Privacy API — we
  * never read or write Shopify cookies directly.
  *
@@ -66,6 +66,12 @@ interface ConsentinelConfig {
   position: "bottom_bar" | "bottom_left" | "bottom_right" | "center_modal";
   themePreset: "light" | "dark";
   accentColor: string;
+  /** Advanced styling (Pro); the server sends the defaults on free. */
+  bannerWidth: "contained" | "full";
+  fontFamily: "system" | "theme";
+  fontSize: number;
+  buttonFontSize: number;
+  borderWidth: number;
   showBranding: boolean;
   /** Any enabled opt-in region rule (EU/UK…) */
   optIn: boolean;
@@ -113,6 +119,11 @@ const DEFAULTS: ConsentinelConfig = {
   position: "bottom_bar",
   themePreset: "light",
   accentColor: "#1A1A1A",
+  bannerWidth: "contained",
+  fontFamily: "system",
+  fontSize: 14,
+  buttonFontSize: 14,
+  borderWidth: 1,
   showBranding: true,
   optIn: true,
   optOut: true,
@@ -609,6 +620,13 @@ function readableTextColor(hex: string): string {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? "#1a1a1a" : "#ffffff";
 }
 
+/** Clamp a config number into [min,max]; malformed metafield values fall
+ *  back so nothing out-of-range is ever interpolated into banner CSS. */
+function num(value: unknown, min: number, max: number, fallback: number): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= min && n <= max ? n : fallback;
+}
+
 function styles(): string {
   const dark = config.themePreset === "dark";
   const surface = dark ? "#212226" : "#ffffff";
@@ -618,8 +636,19 @@ function styles(): string {
   const hover = dark ? "#2c2d33" : "#f4f4f6";
   const accent = config.accentColor;
   const accentText = readableTextColor(accent);
-  const font =
-    "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+  const font = "system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
+
+  // Advanced styling (Pro). Clamped again client-side (see num above).
+  const fs = num(config.fontSize, 12, 18, 14);
+  const bfs = num(config.buttonFontSize, 12, 18, 14);
+  const bw = num(config.borderWidth, 0, 3, 1);
+  // Every element sets font via shorthand (so theme element selectors can't
+  // leak in); when the merchant picks "match my theme's font", a trailing
+  // font-family:inherit re-adopts the theme typeface while keeping our
+  // explicit sizes and weights.
+  const themed = config.fontFamily === "theme";
+  const f = (weight: number, sizePx: number, lineHeight: number | string) =>
+    `font:${weight} ${sizePx}px/${lineHeight} ${font}${themed ? ";font-family:inherit" : ""};`;
 
   const positionCss = {
     // Centered bar with a width cap — a viewport-wide bar leaves a dead
@@ -642,15 +671,18 @@ function styles(): string {
 .cstl-scrim{position:fixed;inset:0;background:rgba(15,15,18,.5);z-index:2147483646;
   backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
 .cstl-banner{position:fixed;${positionCss}z-index:2147483647;background:${surface};color:${text};
-  border:1px solid ${border};border-radius:16px;
+  border:${bw}px solid ${border};border-radius:16px;
   box-shadow:0 16px 48px rgba(0,0,0,.22),0 2px 8px rgba(0,0,0,.10);
-  padding:22px 24px;font:400 14px/1.55 ${font};text-align:left;letter-spacing:normal}
+  padding:22px 24px;${f(400, fs, 1.55)}text-align:left;letter-spacing:normal}
+.cstl-banner:focus{outline:none}
+.cstl-banner--wfull{left:0;right:0;bottom:0;width:auto;max-width:none;transform:none;
+  border-radius:0;border-left:0;border-right:0;border-bottom:0}
 .cstl-banner,.cstl-banner *{box-sizing:border-box}
 .cstl-banner .cstl-logo{display:block;max-height:36px;max-width:180px;width:auto;height:auto;
   margin:0 0 12px;border:0;padding:0}
-.cstl-banner .cstl-heading{font:600 16px/1.3 ${font};letter-spacing:-.01em;color:${text};
+.cstl-banner .cstl-heading{${f(600, fs + 2, 1.3)}letter-spacing:-.01em;color:${text};
   margin:0 0 8px;padding:0;text-transform:none}
-.cstl-banner .cstl-body{font:400 14px/1.55 ${font};letter-spacing:normal;text-transform:none;color:${subdued};margin:0 0 16px;padding:0;max-width:62ch}
+.cstl-banner .cstl-body{${f(400, fs, 1.55)}letter-spacing:normal;text-transform:none;color:${subdued};margin:0 0 16px;padding:0;max-width:62ch}
 .cstl-banner .cstl-body a{font:inherit;letter-spacing:normal;text-transform:none;color:${text};text-decoration:underline;text-underline-offset:2px}
 .cstl-banner .cstl-body a:hover{color:${accent}}
 .cstl-main{display:flex;flex-direction:column}
@@ -658,25 +690,25 @@ function styles(): string {
 .cstl-banner--bottom_bar .cstl-body{margin:0}
 .cstl-banner--bottom_bar .cstl-actions{flex:none}
 .cstl-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.cstl-banner .cstl-btn{font:600 14px/1 ${font};letter-spacing:normal;border-radius:10px;
+.cstl-banner .cstl-btn{${f(600, bfs, 1)}letter-spacing:normal;border-radius:10px;
   padding:11px 20px;cursor:pointer;border:1px solid ${border};background:transparent;color:${text};
   margin:0;text-transform:none;min-height:0;transition:background-color .15s ease,filter .15s ease}
 .cstl-banner .cstl-btn:hover{background:${hover}}
 .cstl-banner .cstl-btn:focus-visible{outline:2px solid currentColor;outline-offset:2px}
 .cstl-banner .cstl-btn--primary{background:${accent};border-color:${accent};color:${accentText}}
 .cstl-banner .cstl-btn--primary:hover{background:${accent};filter:brightness(1.12)}
-.cstl-banner .cstl-link{font:500 14px/1 ${font};letter-spacing:normal;background:none;border:none;padding:11px 4px;margin:0;
+.cstl-banner .cstl-link{${f(500, bfs, 1)}letter-spacing:normal;background:none;border:none;padding:11px 4px;margin:0;
   cursor:pointer;color:${subdued};text-decoration:underline;text-underline-offset:2px;text-transform:none}
 .cstl-banner .cstl-link:hover{color:${text}}
 .cstl-banner .cstl-link:focus-visible{outline:2px solid currentColor;outline-offset:2px}
-.cstl-banner .cstl-brand{margin:14px 0 0;font:400 11px/1 ${font};letter-spacing:normal;color:${subdued};opacity:.85}
+.cstl-banner .cstl-brand{margin:14px 0 0;${f(400, 11, 1)}letter-spacing:normal;color:${subdued};opacity:.85}
 .cstl-cats{display:flex;flex-direction:column;gap:8px;margin:0 0 16px;padding:0;list-style:none}
 .cstl-banner .cstl-cat{border:1px solid ${border};border-radius:10px;padding:0;margin:0;list-style:none}
 .cstl-banner .cstl-catrow{display:flex;justify-content:space-between;align-items:center;gap:12px;
   padding:11px 14px;margin:0;cursor:pointer;font:inherit;text-decoration:none;text-transform:none}
 .cstl-banner .cstl-catrow--locked{cursor:default}
-.cstl-banner .cstl-cat b{font:600 13.5px/1.4 ${font};letter-spacing:normal;text-transform:none;text-decoration:none;color:${text};display:block}
-.cstl-banner .cstl-cat small{display:block;font:400 12.5px/1.45 ${font};letter-spacing:normal;text-transform:none;text-decoration:none;color:${subdued};margin-top:1px}
+.cstl-banner .cstl-cat b{${f(600, fs - 0.5, 1.4)}letter-spacing:normal;text-transform:none;text-decoration:none;color:${text};display:block}
+.cstl-banner .cstl-cat small{display:block;${f(400, fs - 1.5, 1.45)}letter-spacing:normal;text-transform:none;text-decoration:none;color:${subdued};margin-top:1px}
 .cstl-banner .cstl-toggle{appearance:none;-webkit-appearance:none;width:20px;height:20px;margin:0;
   flex:none;border:2px solid ${subdued};border-radius:6px;background:transparent;cursor:pointer;
   position:relative;transform:none;transition:background-color .15s ease,border-color .15s ease}
@@ -688,7 +720,8 @@ function styles(): string {
 @media (max-width:760px){.cstl-banner--bottom_bar .cstl-main{flex-direction:column;align-items:stretch;gap:0}
   .cstl-banner--bottom_bar .cstl-body{margin:0 0 16px}}
 @media (max-width:520px){.cstl-banner{left:12px;right:12px;bottom:12px;width:auto;max-width:none;padding:18px;
-  transform:none;top:auto}.cstl-actions .cstl-btn{flex:1 1 40%;text-align:center;padding:11px 12px}}
+  transform:none;top:auto}.cstl-banner--wfull{left:0;right:0;bottom:0}
+  .cstl-actions .cstl-btn{flex:1 1 40%;text-align:center;padding:11px 12px}}
 @media (prefers-reduced-motion:no-preference){.cstl-banner{animation:cstl-in .28s cubic-bezier(.16,1,.3,1)}}
 @keyframes cstl-in{from{opacity:0}to{opacity:1}}
 `;
@@ -711,7 +744,11 @@ function renderBanner(api: CustomerPrivacy, mode: "opt_in" | "opt_out"): void {
   }
 
   const panel = document.createElement("div");
-  panel.className = `cstl-banner cstl-banner--${config.position}`;
+  panel.className =
+    `cstl-banner cstl-banner--${config.position}` +
+    (config.position === "bottom_bar" && config.bannerWidth === "full"
+      ? " cstl-banner--wfull"
+      : "");
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-modal", config.position === "center_modal" ? "true" : "false");
   panel.setAttribute("aria-labelledby", "cstl-heading");
@@ -773,8 +810,12 @@ function renderBanner(api: CustomerPrivacy, mode: "opt_in" | "opt_out"): void {
   bannerRoot.appendChild(panel);
   document.body.appendChild(bannerRoot);
 
-  const firstButton = panel.querySelector<HTMLButtonElement>("button");
-  firstButton?.focus();
+  // Focus the dialog itself, not its first button: screen readers announce
+  // the banner either way, but focusing a button on page load draws a
+  // focus-visible ring that merchants read as a broken border. Keyboard
+  // users get the ring back the moment they Tab.
+  panel.tabIndex = -1;
+  panel.focus();
   if (config.position === "center_modal") trapFocus(panel);
 }
 
@@ -852,10 +893,13 @@ function trapFocus(panel: HTMLElement): void {
     if (focusables.length === 0) return;
     const first = focusables[0];
     const last = focusables[focusables.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
+    // The panel itself holds focus right after render (tabindex="-1"), so
+    // shift-Tab from it must wrap to the end, not escape the dialog.
+    const active = document.activeElement;
+    if (event.shiftKey && (active === first || active === panel)) {
       event.preventDefault();
       last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
+    } else if (!event.shiftKey && active === last) {
       event.preventDefault();
       first.focus();
     }

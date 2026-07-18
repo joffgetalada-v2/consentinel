@@ -52,6 +52,11 @@ export function canUseLogo(plan: string): boolean {
   return plan === "paid";
 }
 
+/** Advanced styling (banner width, fonts, border thickness) is Pro only. */
+export function canUseAdvancedStyling(plan: string): boolean {
+  return plan === "paid";
+}
+
 // ---------------------------------------------------------------------------
 // Plan cache reconciliation
 // ---------------------------------------------------------------------------
