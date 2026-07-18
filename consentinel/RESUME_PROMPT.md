@@ -11,39 +11,27 @@ components, theme app extension with pre-consent script blocking + Google
 Consent Mode v2, Customer Privacy API only — never raw Shopify cookies).
 
 START HERE:
-1. Read consentinel/PROJECT_STATUS.md top to bottom — the "SESSION-2 STOPPING
+1. Read consentinel/PROJECT_STATUS.md top to bottom — the "SESSION-3 STOPPING
    POINT" section at the top says exactly where we stopped, and the file has
    all environment quirks for this machine (which shopify CLI binary and
    node@22 PATH prefix, the pseudo-TTY trick for CLI prompts, the local
-   banner-test harness recipe).
-2. OPEN BUG I REPORTED, fix in progress — my exact feedback from last session:
-   "i did some testing now and i notices that some of the setting seems to
-   have some big spaces and the checkbox seems not clear."
-   Context: with the banner on the dark theme in the bottom-bar position, the
-   full-width bar had a huge empty area to the right of the text/buttons, and
-   in the Customize (Privacy preferences) view the category rows stretched
-   the same width with small unclear checkboxes at the far edge. A fix was
-   already written (centered 960px bar with text left / buttons right,
-   custom high-contrast checkboxes, whole row clickable) but its VISUAL
-   VERIFICATION WAS INTERRUPTED — do not consider it done until it's checked
-   in the harness and then confirmed by me on the storefront.
-3. In order:
-   a. Make a git commit of everything since 82761d6 (all session-2 work is
-      uncommitted; commit message ideas are in PROJECT_STATUS).
-   b. Finish the interrupted visual verification of the fix above using the
-      local banner harness (dark bottom_bar main view + Customize view,
-      light + mobile spot checks). Fix anything that looks off.
-   c. Tell me when to run `shopify app deploy` (you can't release versions
-      yourself) and what to test after — including re-checking the big-spaces
-      and checkbox issues on the real storefront.
-4. My test results from last time / this round: [PASTE RESULTS OR SCREENSHOTS
-   HERE — bottom-bar spacing + checkbox clarity after deploy, consent-log row
-   after a fresh accept, GCM dataLayer entries, billing upgrade/cancel flow,
-   logo URL on Pro]
-5. Remaining backlog after that (details in PROJECT_STATUS "Known follow-ups"):
-   metafield sync on first install, APP_SUBSCRIPTIONS_UPDATE webhook,
-   pre-submission checklist items (listing assets, production hosting,
-   Postgres switch), and the first App Store submission pass.
+   banner-test harness recipe + its cache-busting/click gotchas).
+2. State at end of session 3 (2026-07-18): everything is committed (648414e).
+   The bottom-bar big-spaces + unclear-checkbox fix I reported IS harness-
+   verified, plus four extra theme-bleed leak fixes, a mobile action-row fix,
+   and a double-click submit guard. NOT YET DEPLOYED — I run
+   `PATH="/usr/local/opt/node@22/bin:$PATH" ~/.npm-global/bin/shopify app deploy --allow-updates`
+   from consentinel/ myself.
+3. My test results from the deploy: [PASTE RESULTS OR SCREENSHOTS HERE —
+   bottom-bar spacing + checkbox clarity on the real storefront (desktop +
+   phone), Customize view, consent-log row after a fresh accept, GCM
+   dataLayer entries, billing upgrade/cancel flow, logo URL on Pro]
+4. Work through whatever my results turn up; then the backlog (details in
+   PROJECT_STATUS "Known follow-ups"): metafield sync on first install,
+   APP_SUBSCRIPTIONS_UPDATE webhook, pre-submission checklist items (listing
+   assets, production hosting, Postgres switch), and the first App Store
+   submission pass. NOTE: the banner bundle is at ~0 bytes of headroom under
+   its 16KiB budget — any new banner feature must trim something first.
 
 Same working method as before: work incrementally, verify each stage yourself
 where you can (typecheck, lint, build, webhook triggers, the banner harness),
