@@ -124,6 +124,13 @@ banner, genuine pre-consent script blocking, Google Consent Mode v2, Polaris
 
 ## Known follow-ups / open items
 
+- **BILLING BLOCKED until the merchant picks a distribution method** (found
+  2026-07-18): appSubscriptionCreate returns "Apps without a public
+  distribution cannot use the Billing API". Fix: Partner Dashboard → Apps →
+  consentinel → Distribution → choose **Public distribution** (correct for
+  an App Store app; the choice is permanent). Billing errors now surface as
+  a toast on the Plan page instead of a crash (d876f6d).
+
 - **RESOLVED (2026-07-14): native banner + region coupling.** Merchant
   disabled Shopify's native banner (Cookie banner → Regions → "Not visible
   in any region" — that IS the off switch; there's no separate toggle),
