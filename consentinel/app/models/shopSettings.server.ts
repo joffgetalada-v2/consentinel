@@ -53,6 +53,7 @@ export interface ShopSettingsInput {
   fontSize?: number;
   buttonFontSize?: number;
   borderWidth?: number;
+  modalWidth?: number;
   onboardingDismissed?: boolean;
 }
 
@@ -133,7 +134,7 @@ export function validateShopSettingsInput(
     errors.push({ field: "logoPosition", message: "Unknown logo position" });
   }
   const requireRange = (
-    field: "fontSize" | "buttonFontSize" | "borderWidth" | "logoSize",
+    field: "fontSize" | "buttonFontSize" | "borderWidth" | "logoSize" | "modalWidth",
     value: number | undefined,
   ) => {
     if (value === undefined) return;
@@ -146,6 +147,7 @@ export function validateShopSettingsInput(
   requireRange("buttonFontSize", input.buttonFontSize);
   requireRange("borderWidth", input.borderWidth);
   requireRange("logoSize", input.logoSize);
+  requireRange("modalWidth", input.modalWidth);
 
   return errors;
 }

@@ -80,6 +80,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           fontSize: Number(form.get("fontSize")),
           buttonFontSize: Number(form.get("buttonFontSize")),
           borderWidth: Number(form.get("borderWidth")),
+          modalWidth: Number(form.get("modalWidth")),
         }
       : {}),
   };
@@ -124,25 +125,12 @@ const LOGO_POSITION_LABELS: Record<LogoPosition, string> = {
   right: "Right of the content",
 };
 
-const LOGO_SIZE_OPTIONS = [
-  { value: 24, label: "Small (24px)" },
-  { value: 36, label: "Medium (36px)" },
-  { value: 48, label: "Large (48px)" },
-];
-
-/** Size options offered in the selects, derived from the shared clamp limits. */
-const sizeOptions = (key: "fontSize" | "buttonFontSize" | "borderWidth"): number[] => {
-  const { min, max } = STYLE_LIMITS[key];
-  return Array.from({ length: max - min + 1 }, (_, index) => min + index);
-};
-
-export default function Settings() {
-  const { settings, canEditLogo, canEditStyling } = useLoaderData<typeof loader>();
-  const fetcher = useFetcher<typeof action>();
-  const shopify = useAppBridge();
-
-  // Controlled form state so the preview tracks every keystroke.
-  const [form, setForm] = useState({
+/** Loader-shaped settings → controlled-form state. Also the baseline for the
+ * dirty check that enables the Save button. */
+function formStateFrom(
+  settings: Awaited<ReturnType<typeof loader>>["settings"],
+) {
+  return {
     heading: settings.heading,
     body: settings.body,
     acceptLabel: settings.acceptLabel,
@@ -160,9 +148,31 @@ export default function Settings() {
     fontSize: String(settings.fontSize),
     buttonFontSize: String(settings.buttonFontSize),
     borderWidth: String(settings.borderWidth),
-  });
+    modalWidth: String(settings.modalWidth),
+  };
+}
+
+/** Size options offered in the selects, derived from the shared clamp limits. */
+const sizeOptions = (key: "fontSize" | "buttonFontSize" | "borderWidth"): number[] => {
+  const { min, max } = STYLE_LIMITS[key];
+  return Array.from({ length: max - min + 1 }, (_, index) => min + index);
+};
+
+export default function Settings() {
+  const { settings, canEditLogo, canEditStyling } = useLoaderData<typeof loader>();
+  const fetcher = useFetcher<typeof action>();
+  const shopify = useAppBridge();
+
+  // Controlled form state so the preview tracks every keystroke.
+  const [form, setForm] = useState(() => formStateFrom(settings));
 
   const isSaving = fetcher.state !== "idle";
+  // Saved settings revalidate after the action, so once a save round-trips
+  // the form matches the loader again and Save grays back out.
+  const savedForm = formStateFrom(settings);
+  const isDirty = (Object.keys(form) as (keyof typeof form)[]).some(
+    (key) => form[key] !== savedForm[key],
+  );
 
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data?.ok) {
@@ -218,6 +228,7 @@ export default function Settings() {
         slot="primary-action"
         onClick={save}
         {...(isSaving ? { loading: true } : {})}
+        {...(!isDirty && !isSaving ? { disabled: true } : {})}
       >
         Save
       </s-button>
@@ -294,18 +305,14 @@ export default function Settings() {
             </>
           )}
           <s-stack direction="inline" gap="base">
-            <s-select
-              label="Logo size"
+            <s-text-field
+              label="Logo width (px)"
               value={form.logoSize}
-              onChange={set("logoSize")}
+              onInput={set("logoSize")}
+              error={errorFor("logoSize")}
               {...(!canEditLogo ? { disabled: true } : {})}
-            >
-              {LOGO_SIZE_OPTIONS.map((option) => (
-                <s-option key={option.value} value={String(option.value)}>
-                  {option.label}
-                </s-option>
-              ))}
-            </s-select>
+              details={`${STYLE_LIMITS.logoSize.min}–${STYLE_LIMITS.logoSize.max}px; height scales with the image.`}
+            />
             <s-select
               label="Logo position"
               value={form.logoPosition}
@@ -379,6 +386,14 @@ export default function Settings() {
               </s-option>
             ))}
           </s-select>
+          <s-text-field
+            label="Modal width (px)"
+            value={form.modalWidth}
+            onInput={set("modalWidth")}
+            error={errorFor("modalWidth")}
+            {...(!canEditStyling ? { disabled: true } : {})}
+            details={`${STYLE_LIMITS.modalWidth.min}–${STYLE_LIMITS.modalWidth.max}px. Only applies to the Centered modal position; small screens always fit the viewport.`}
+          />
           <s-select
             label="Font"
             value={form.fontFamily}
@@ -442,7 +457,7 @@ export default function Settings() {
           customizeLabel={form.customizeLabel}
           privacyPolicyUrl={form.privacyPolicyUrl}
           logoUrl={canEditLogo ? form.logoUrl : ""}
-          logoSize={canEditLogo ? Number(form.logoSize) || 36 : 36}
+          logoSize={canEditLogo ? Number(form.logoSize) || 120 : 120}
           logoPosition={
             canEditLogo ? ((form.logoPosition as LogoPosition) ?? "top") : "top"
           }
@@ -456,6 +471,7 @@ export default function Settings() {
           fontSize={canEditStyling ? Number(form.fontSize) || 14 : 14}
           buttonFontSize={canEditStyling ? Number(form.buttonFontSize) || 14 : 14}
           borderWidth={canEditStyling ? Number(form.borderWidth) || 0 : 1}
+          modalWidth={canEditStyling ? Number(form.modalWidth) || 460 : 460}
         />
         <s-paragraph>
           <s-text color="subdued">

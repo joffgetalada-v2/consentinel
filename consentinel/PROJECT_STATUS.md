@@ -4,7 +4,20 @@ _Last updated: 2026-07-18 (session 3)._
 
 ## ⏸ SESSION-3 STOPPING POINT — resume here
 
--1. **NEWEST (2026-07-19): logo layout + image picker + billing return fix,
+-2. **NEWEST (2026-07-19 later): logo width + modal width + dirty-save,
+   NOT deployed.** logoSize reinterpreted as WIDTH px (text field, clamped
+   20–200, migration resets existing rows to 120 — height now scales with
+   the image, fixing the "logo looks small/cramped" report); new
+   ShopSettings.modalWidth (text field, 320–720, default 460) drives the
+   centered modal via width:min(${"{mw}"}px, 100vw-32px) so it stays
+   responsive (≤520px bottom-sheet unchanged); Banner-settings Save button
+   now grays out until the form differs from the saved loader state
+   (formStateFrom baseline compare — revalidation after save re-disables
+   it). Bundle 17405B min / 6.4KB gzip (≤17KB). Harness-verified 640px
+   dark modal + 180px-wide logo. Restart dev server (new Prisma client)
+   + deploy still required.
+
+-1. **(2026-07-19): logo layout + image picker + billing return fix,
    NOT deployed.** (a) Logo size (24/36/48 select, clamped 20–60) and
    position (top/left/right of content) — new ShopSettings columns +
    `add_logo_layout` migration, storefront flex layouts, preview support;

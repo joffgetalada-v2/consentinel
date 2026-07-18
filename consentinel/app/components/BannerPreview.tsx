@@ -40,6 +40,7 @@ export interface BannerPreviewProps {
   fontSize: number;
   buttonFontSize: number;
   borderWidth: number;
+  modalWidth: number;
 }
 
 const PREVIEW_HEIGHT = 340;
@@ -67,7 +68,7 @@ export function BannerPreview(props: BannerPreviewProps) {
     fontSize: scaledFont,
     lineHeight: 1.45,
     position: "absolute",
-    ...positionStyles(props.position, props.bannerWidth),
+    ...positionStyles(props.position, props.bannerWidth, props.modalWidth),
   };
 
   return (
@@ -149,9 +150,9 @@ function PreviewContent(
       alt=""
       style={{
         display: "block",
-        // The preview frame is a miniature, so scale the real px cap down.
-        maxHeight: Math.max(14, Math.round(props.logoSize * (2 / 3))),
-        maxWidth: 120,
+        // The preview frame is a miniature, so scale the real width cap down.
+        maxWidth: Math.max(16, Math.round(props.logoSize * 0.6)),
+        maxHeight: 90,
         marginBottom: props.logoPosition === "top" ? 8 : 0,
       }}
     />
@@ -203,6 +204,7 @@ function PreviewContent(
 function positionStyles(
   position: BannerPosition,
   bannerWidth: BannerWidth,
+  modalWidth: number,
 ): React.CSSProperties {
   switch (position) {
     case "bottom_bar":
@@ -218,7 +220,8 @@ function positionStyles(
         left: "50%",
         top: "50%",
         transform: "translate(-50%, -50%)",
-        width: "min(320px, 85%)",
+        // Miniature scale of the real modal width, still viewport-capped.
+        width: `min(${Math.round(modalWidth * 0.7)}px, 85%)`,
       };
   }
 }

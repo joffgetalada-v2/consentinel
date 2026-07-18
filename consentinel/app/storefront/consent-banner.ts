@@ -63,8 +63,11 @@ interface ConsentinelConfig {
   privacyPolicyUrl: string | null;
   /** Merchant logo (Pro feature); the server sends null on the free plan. */
   logoUrl: string | null;
+  /** Logo width cap in px; height scales with the image's aspect ratio. */
   logoSize: number;
   logoPosition: "top" | "left" | "right";
+  /** Centered-modal width in px (still capped at viewport - 32). */
+  modalWidth: number;
   position: "bottom_bar" | "bottom_left" | "bottom_right" | "center_modal";
   themePreset: "light" | "dark";
   accentColor: string;
@@ -118,8 +121,9 @@ const DEFAULTS: ConsentinelConfig = {
   customizeLabel: "Customize",
   privacyPolicyUrl: null,
   logoUrl: null,
-  logoSize: 36,
+  logoSize: 120,
   logoPosition: "top",
+  modalWidth: 460,
   position: "bottom_bar",
   themePreset: "light",
   accentColor: "#1A1A1A",
@@ -646,7 +650,8 @@ function styles(): string {
   const fs = num(config.fontSize, 12, 18, 14);
   const bfs = num(config.buttonFontSize, 12, 18, 14);
   const bw = num(config.borderWidth, 0, 3, 1);
-  const ls = num(config.logoSize, 20, 60, 36);
+  const ls = num(config.logoSize, 20, 200, 120);
+  const mw = num(config.modalWidth, 320, 720, 460);
   // Every element sets font via shorthand (so theme element selectors can't
   // leak in); when the merchant picks "match my theme's font", a trailing
   // font-family:inherit re-adopts the theme typeface while keeping our
@@ -663,7 +668,7 @@ function styles(): string {
     bottom_left: "left:16px;bottom:16px;max-width:400px;",
     bottom_right: "right:16px;bottom:16px;max-width:400px;",
     center_modal:
-      "left:50%;top:50%;transform:translate(-50%,-50%);width:min(460px,calc(100vw - 32px));",
+      `left:50%;top:50%;transform:translate(-50%,-50%);width:min(${mw}px,calc(100vw - 32px));`,
   }[config.position] ?? "left:16px;right:16px;bottom:16px;";
 
   // Theme stylesheets target bare elements (h2, p, button, a), so every
@@ -681,9 +686,9 @@ function styles(): string {
   padding:22px 24px;${f(400, fs, 1.55)}text-align:left;letter-spacing:normal}
 .cstl-banner:focus{outline:none}
 .cstl-banner--wfull{left:0;right:0;bottom:0;width:auto;max-width:none;transform:none;
-  border-radius:0;border-left:0;border-right:0;border-bottom:0}
+  border-radius:0;border-width:${bw}px 0 0}
 .cstl-banner,.cstl-banner *{box-sizing:border-box}
-.cstl-banner .cstl-logo{display:block;max-height:${ls}px;max-width:220px;width:auto;height:auto;
+.cstl-banner .cstl-logo{display:block;max-width:${ls}px;max-height:200px;width:auto;height:auto;
   margin:0 0 12px;border:0;padding:0}
 .cstl-content--ll,.cstl-content--lr{display:flex;align-items:center;gap:16px}
 .cstl-content--lr{flex-direction:row-reverse;justify-content:flex-end}

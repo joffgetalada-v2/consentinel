@@ -58,7 +58,7 @@ model ShopSettings {
   // Merchant logo shown on the banner (Pro feature). A URL — set by the
   // in-app image picker (app.logo-upload.tsx) or pasted manually.
   logoUrl          String?
-  logoSize         Int     @default(36) // max height px; clamped 20–60
+  logoSize         Int     @default(120) // max WIDTH px; clamped 20–200
   logoPosition     String  @default("top") // top | left | right of the content
 
   // Appearance
@@ -73,6 +73,7 @@ model ShopSettings {
   fontSize       Int    @default(14) // banner body px; clamped 12–18 in the model layer
   buttonFontSize Int    @default(14) // button label px; clamped 12–18
   borderWidth    Int    @default(1) // banner/card border px; clamped 0–3
+  modalWidth     Int    @default(460) // centered-modal width px; clamped 320–720
 
   // Billing state (managed via the Shopify Billing API — never hardcoded charges).
   // `plan` is a cached copy of the subscription check for cheap feature gating;

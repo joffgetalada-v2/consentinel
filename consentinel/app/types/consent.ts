@@ -44,7 +44,10 @@ export const STYLE_LIMITS = {
   fontSize: { min: 12, max: 18, fallback: 14 },
   buttonFontSize: { min: 12, max: 18, fallback: 14 },
   borderWidth: { min: 0, max: 3, fallback: 1 },
-  logoSize: { min: 20, max: 60, fallback: 36 },
+  /** Logo width in px (height scales proportionally). */
+  logoSize: { min: 20, max: 200, fallback: 120 },
+  /** Centered-modal width in px; the storefront still caps at viewport - 32. */
+  modalWidth: { min: 320, max: 720, fallback: 460 },
 } as const;
 
 export function clampStyle(
