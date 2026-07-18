@@ -4,6 +4,24 @@ _Last updated: 2026-07-18 (session 3)._
 
 ## ⏸ SESSION-3 STOPPING POINT — resume here
 
+-1. **NEWEST (2026-07-19): logo layout + image picker + billing return fix,
+   NOT deployed.** (a) Logo size (24/36/48 select, clamped 20–60) and
+   position (top/left/right of content) — new ShopSettings columns +
+   `add_logo_layout` migration, storefront flex layouts, preview support;
+   harness-verified left@48 dark bar + right@24 light card. (b) In-app logo
+   image picker: hidden file input → POST /app/logo-upload
+   (app/routes/app.logo-upload.tsx: stagedUploadsCreate → POST bytes →
+   fileCreate → poll READY → CDN URL into the form). **REQUIRES the new
+   `write_files` scope (shopify.app.toml changed from "")** — after deploy,
+   re-open the app once so managed install grants it; merchant-tested
+   upload still owed. (c) White screen after approving the test charge
+   fixed: billing returnUrl now points at the embedded admin deep link
+   (admin.shopify.com/store/{handle}/apps/{api-key}/app/plan) instead of
+   the bare tunnel URL where App Bridge has no shop/host. (d) Billing now
+   VERIFIED working after the merchant chose Public distribution in the
+   Partner Dashboard; Pro features unlock. Bundle 17375B min / 6.5KB gzip
+   (≤17KB budget).
+
 0. **NEW (later in session 3): Advanced styling (Pro) + focus-ring fix,
    harness-verified, NOT deployed.** Merchant asked for width/font/border
    controls after seeing the deployed banner. Shipped: `bannerWidth`

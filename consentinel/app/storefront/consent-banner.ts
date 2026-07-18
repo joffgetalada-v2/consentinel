@@ -16,7 +16,7 @@
  *      for granted categories, and log the event via the app proxy.
  *
  * Deliberately dependency-free vanilla TypeScript; target bundle ≤ 17KB
- * minified (~6.2KB gzipped — the number that matters on the wire).
+ * minified (~6.5KB gzipped — the number that matters on the wire).
  * Consent state lives exclusively in Shopify's Customer Privacy API — we
  * never read or write Shopify cookies directly.
  *
@@ -63,6 +63,8 @@ interface ConsentinelConfig {
   privacyPolicyUrl: string | null;
   /** Merchant logo (Pro feature); the server sends null on the free plan. */
   logoUrl: string | null;
+  logoSize: number;
+  logoPosition: "top" | "left" | "right";
   position: "bottom_bar" | "bottom_left" | "bottom_right" | "center_modal";
   themePreset: "light" | "dark";
   accentColor: string;
@@ -116,6 +118,8 @@ const DEFAULTS: ConsentinelConfig = {
   customizeLabel: "Customize",
   privacyPolicyUrl: null,
   logoUrl: null,
+  logoSize: 36,
+  logoPosition: "top",
   position: "bottom_bar",
   themePreset: "light",
   accentColor: "#1A1A1A",
@@ -642,6 +646,7 @@ function styles(): string {
   const fs = num(config.fontSize, 12, 18, 14);
   const bfs = num(config.buttonFontSize, 12, 18, 14);
   const bw = num(config.borderWidth, 0, 3, 1);
+  const ls = num(config.logoSize, 20, 60, 36);
   // Every element sets font via shorthand (so theme element selectors can't
   // leak in); when the merchant picks "match my theme's font", a trailing
   // font-family:inherit re-adopts the theme typeface while keeping our
@@ -678,8 +683,11 @@ function styles(): string {
 .cstl-banner--wfull{left:0;right:0;bottom:0;width:auto;max-width:none;transform:none;
   border-radius:0;border-left:0;border-right:0;border-bottom:0}
 .cstl-banner,.cstl-banner *{box-sizing:border-box}
-.cstl-banner .cstl-logo{display:block;max-height:36px;max-width:180px;width:auto;height:auto;
+.cstl-banner .cstl-logo{display:block;max-height:${ls}px;max-width:220px;width:auto;height:auto;
   margin:0 0 12px;border:0;padding:0}
+.cstl-content--ll,.cstl-content--lr{display:flex;align-items:center;gap:16px}
+.cstl-content--lr{flex-direction:row-reverse;justify-content:flex-end}
+.cstl-content--ll .cstl-logo,.cstl-content--lr .cstl-logo{margin:0;flex:none}
 .cstl-banner .cstl-heading{${f(600, fs + 2, 1.3)}letter-spacing:-.01em;color:${text};
   margin:0 0 8px;padding:0;text-transform:none}
 .cstl-banner .cstl-body{${f(400, fs, 1.55)}letter-spacing:normal;text-transform:none;color:${subdued};margin:0 0 16px;padding:0;max-width:62ch}
@@ -771,12 +779,19 @@ function renderBanner(api: CustomerPrivacy, mode: "opt_in" | "opt_out"): void {
 
   // Content and actions live in one flex container so the bottom bar can
   // lay them out side by side (text left, buttons right) on wide screens.
+  // A left/right logo flexes beside the text block; "top" keeps it stacked.
+  const textHtml =
+    `<h2 class="cstl-heading" id="cstl-heading">${heading}</h2>` +
+    `<p class="cstl-body" id="cstl-body">${body}${policyLink}</p>`;
+  const sideLogo =
+    logo && (config.logoPosition === "left" || config.logoPosition === "right");
+  const contentClass = sideLogo
+    ? ` cstl-content--${config.logoPosition === "left" ? "ll" : "lr"}`
+    : "";
   panel.innerHTML =
     `<div class="cstl-main">` +
-    `<div class="cstl-content">` +
-    logo +
-    `<h2 class="cstl-heading" id="cstl-heading">${heading}</h2>` +
-    `<p class="cstl-body" id="cstl-body">${body}${policyLink}</p>` +
+    `<div class="cstl-content${contentClass}">` +
+    (sideLogo ? `${logo}<div>${textHtml}</div>` : logo + textHtml) +
     `</div>` +
     `<div class="cstl-actions"></div>` +
     `</div>` +

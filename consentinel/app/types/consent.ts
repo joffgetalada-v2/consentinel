@@ -31,6 +31,10 @@ export type BannerWidth = (typeof BANNER_WIDTHS)[number];
 export const BANNER_FONTS = ["system", "theme"] as const;
 export type BannerFont = (typeof BANNER_FONTS)[number];
 
+/** Where the merchant logo sits relative to the banner text (Pro). */
+export const LOGO_POSITIONS = ["top", "left", "right"] as const;
+export type LogoPosition = (typeof LOGO_POSITIONS)[number];
+
 /**
  * Clamp ranges for the numeric styling settings (Pro). Shared by the admin
  * validation, the config builder, and the storefront bundle so a crafted
@@ -40,6 +44,7 @@ export const STYLE_LIMITS = {
   fontSize: { min: 12, max: 18, fallback: 14 },
   buttonFontSize: { min: 12, max: 18, fallback: 14 },
   borderWidth: { min: 0, max: 3, fallback: 1 },
+  logoSize: { min: 20, max: 60, fallback: 36 },
 } as const;
 
 export function clampStyle(
@@ -177,6 +182,10 @@ export function isBannerWidth(value: string): value is BannerWidth {
 
 export function isBannerFont(value: string): value is BannerFont {
   return (BANNER_FONTS as readonly string[]).includes(value);
+}
+
+export function isLogoPosition(value: string): value is LogoPosition {
+  return (LOGO_POSITIONS as readonly string[]).includes(value);
 }
 
 export function isConsentMode(value: string): value is ConsentMode {

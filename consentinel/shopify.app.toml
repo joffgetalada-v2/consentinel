@@ -7,9 +7,10 @@ name = "consentinel"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-# No scopes: the admin UI works on app-owned data only, and the storefront
-# config metafield lives on the app's own installation (no scope required).
-scopes = ""
+# write_files: the merchant-logo image picker uploads to the store's Files
+# (stagedUploadsCreate + fileCreate in app/routes/app.logo-upload.tsx).
+# Everything else works on app-owned data only.
+scopes = "write_files"
 
 [webhooks]
 api_version = "2026-10"

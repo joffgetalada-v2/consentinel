@@ -28,6 +28,8 @@ interface StorefrontConfig {
   privacyPolicyUrl: string | null;
   /** Pro feature; null on the free plan. */
   logoUrl: string | null;
+  logoSize: number;
+  logoPosition: string;
   position: string;
   themePreset: string;
   accentColor: string;
@@ -64,6 +66,8 @@ export async function buildStorefrontConfig(shop: string): Promise<StorefrontCon
     customizeLabel: settings.customizeLabel,
     privacyPolicyUrl: settings.privacyPolicyUrl,
     logoUrl: settings.plan === "paid" ? settings.logoUrl : null,
+    logoSize: settings.logoSize,
+    logoPosition: settings.logoPosition,
     position: settings.position,
     themePreset: settings.themePreset,
     accentColor: settings.accentColor,

@@ -62,10 +62,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     try {
       // On success this throws the redirect Response to Shopify's
       // subscription confirmation page — it never returns normally.
+      // The return URL must be the EMBEDDED admin deep link: Shopify sends
+      // the top-level browser there after approval, and a bare app-host URL
+      // has no shop/host params, so App Bridge dies on a white page.
+      const storeHandle = session.shop.replace(".myshopify.com", "");
       await billing.request({
         plan: PRO_PLAN,
         isTest: BILLING_TEST_MODE,
-        returnUrl: `${process.env.SHOPIFY_APP_URL}/app/plan`,
+        returnUrl: `https://admin.shopify.com/store/${storeHandle}/apps/${process.env.SHOPIFY_API_KEY}/app/plan`,
       });
     } catch (error) {
       if (error instanceof Response) throw error; // the confirmation redirect

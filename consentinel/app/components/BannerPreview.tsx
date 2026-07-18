@@ -11,7 +11,12 @@
  * extension banner built in step 5 — it is the merchant's only feedback
  * loop while configuring.
  */
-import type { BannerPosition, BannerWidth, ThemePreset } from "../types/consent";
+import type {
+  BannerPosition,
+  BannerWidth,
+  LogoPosition,
+  ThemePreset,
+} from "../types/consent";
 
 export interface BannerPreviewProps {
   heading: string;
@@ -22,6 +27,8 @@ export interface BannerPreviewProps {
   privacyPolicyUrl: string;
   /** Empty string hides the logo (free plan or none configured). */
   logoUrl: string;
+  logoSize: number;
+  logoPosition: LogoPosition;
   position: BannerPosition;
   themePreset: ThemePreset;
   accentColor: string;
@@ -88,27 +95,11 @@ export function BannerPreview(props: BannerPreviewProps) {
         />
       )}
       <div style={card}>
-        {props.logoUrl ? (
-          <img
-            src={props.logoUrl}
-            alt=""
-            style={{ display: "block", maxHeight: 24, maxWidth: 120, marginBottom: 8 }}
-          />
-        ) : null}
-        <div style={{ fontWeight: 600, fontSize: scaledFont + 1, marginBottom: 4 }}>
-          {props.heading || "…"}
-        </div>
-        <div style={{ color: subdued, marginBottom: 10 }}>
-          {props.body || "…"}
-          {props.privacyPolicyUrl ? (
-            <>
-              {" "}
-              <span style={{ color: props.accentColor, textDecoration: "underline" }}>
-                Privacy policy
-              </span>
-            </>
-          ) : null}
-        </div>
+        <PreviewContent
+          {...props}
+          scaledFont={scaledFont}
+          subdued={subdued}
+        />
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <span
             style={{
@@ -145,6 +136,67 @@ export function BannerPreview(props: BannerPreviewProps) {
         )}
       </div>
     </div>
+  );
+}
+
+/** Logo + heading + body, honoring the logo position (top / left / right). */
+function PreviewContent(
+  props: BannerPreviewProps & { scaledFont: number; subdued: string },
+) {
+  const logo = props.logoUrl ? (
+    <img
+      src={props.logoUrl}
+      alt=""
+      style={{
+        display: "block",
+        // The preview frame is a miniature, so scale the real px cap down.
+        maxHeight: Math.max(14, Math.round(props.logoSize * (2 / 3))),
+        maxWidth: 120,
+        marginBottom: props.logoPosition === "top" ? 8 : 0,
+      }}
+    />
+  ) : null;
+
+  const text = (
+    <>
+      <div style={{ fontWeight: 600, fontSize: props.scaledFont + 1, marginBottom: 4 }}>
+        {props.heading || "…"}
+      </div>
+      <div style={{ color: props.subdued, marginBottom: 10 }}>
+        {props.body || "…"}
+        {props.privacyPolicyUrl ? (
+          <>
+            {" "}
+            <span style={{ color: props.accentColor, textDecoration: "underline" }}>
+              Privacy policy
+            </span>
+          </>
+        ) : null}
+      </div>
+    </>
+  );
+
+  if (logo && props.logoPosition !== "top") {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          flexDirection: props.logoPosition === "right" ? "row-reverse" : "row",
+          justifyContent: props.logoPosition === "right" ? "flex-end" : "flex-start",
+        }}
+      >
+        {logo}
+        <div>{text}</div>
+      </div>
+    );
+  }
+  return (
+    <>
+      {logo}
+      {text}
+    </>
   );
 }
 

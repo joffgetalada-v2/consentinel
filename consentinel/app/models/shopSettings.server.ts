@@ -12,6 +12,7 @@ import {
   isBannerPosition,
   isBannerWidth,
   isHexColor,
+  isLogoPosition,
   isPolicyUrl,
   isThemePreset,
 } from "../types/consent";
@@ -41,6 +42,8 @@ export interface ShopSettingsInput {
   privacyPolicyUrl?: string | null;
   /** Pro feature — callers must gate on canUseLogo before persisting. */
   logoUrl?: string | null;
+  logoSize?: number;
+  logoPosition?: string;
   position?: string;
   themePreset?: string;
   accentColor?: string;
@@ -126,8 +129,11 @@ export function validateShopSettingsInput(
   if (input.fontFamily !== undefined && !isBannerFont(input.fontFamily)) {
     errors.push({ field: "fontFamily", message: "Unknown font option" });
   }
+  if (input.logoPosition !== undefined && !isLogoPosition(input.logoPosition)) {
+    errors.push({ field: "logoPosition", message: "Unknown logo position" });
+  }
   const requireRange = (
-    field: "fontSize" | "buttonFontSize" | "borderWidth",
+    field: "fontSize" | "buttonFontSize" | "borderWidth" | "logoSize",
     value: number | undefined,
   ) => {
     if (value === undefined) return;
@@ -139,6 +145,7 @@ export function validateShopSettingsInput(
   requireRange("fontSize", input.fontSize);
   requireRange("buttonFontSize", input.buttonFontSize);
   requireRange("borderWidth", input.borderWidth);
+  requireRange("logoSize", input.logoSize);
 
   return errors;
 }

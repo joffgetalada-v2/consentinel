@@ -3,7 +3,7 @@
  * updates as the merchant types. Validation errors from the action render
  * inline on the offending field.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   ActionFunctionArgs,
   HeadersFunction,
@@ -27,13 +27,16 @@ import {
   BANNER_FONTS,
   BANNER_POSITIONS,
   BANNER_WIDTHS,
+  LOGO_POSITIONS,
   STYLE_LIMITS,
   THEME_PRESETS,
   type BannerFont,
   type BannerPosition,
   type BannerWidth,
+  type LogoPosition,
   type ThemePreset,
 } from "../types/consent";
+import type { action as logoUploadAction } from "./app.logo-upload";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -63,7 +66,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // The logo is a Pro feature: on the free plan the field is ignored
     // entirely (the UI disables it; this guards against crafted requests).
     ...(canUseLogo(settings.plan)
-      ? { logoUrl: String(form.get("logoUrl") ?? "") }
+      ? {
+          logoUrl: String(form.get("logoUrl") ?? ""),
+          logoSize: Number(form.get("logoSize")),
+          logoPosition: String(form.get("logoPosition") ?? ""),
+        }
       : {}),
     // Advanced styling is likewise Pro-only server-side.
     ...(canUseAdvancedStyling(settings.plan)
@@ -111,6 +118,18 @@ const FONT_LABELS: Record<BannerFont, string> = {
   theme: "Match my theme's font",
 };
 
+const LOGO_POSITION_LABELS: Record<LogoPosition, string> = {
+  top: "Above the text",
+  left: "Left of the content",
+  right: "Right of the content",
+};
+
+const LOGO_SIZE_OPTIONS = [
+  { value: 24, label: "Small (24px)" },
+  { value: 36, label: "Medium (36px)" },
+  { value: 48, label: "Large (48px)" },
+];
+
 /** Size options offered in the selects, derived from the shared clamp limits. */
 const sizeOptions = (key: "fontSize" | "buttonFontSize" | "borderWidth"): number[] => {
   const { min, max } = STYLE_LIMITS[key];
@@ -131,6 +150,8 @@ export default function Settings() {
     customizeLabel: settings.customizeLabel,
     privacyPolicyUrl: settings.privacyPolicyUrl ?? "",
     logoUrl: settings.logoUrl ?? "",
+    logoSize: String(settings.logoSize),
+    logoPosition: settings.logoPosition,
     position: settings.position,
     themePreset: settings.themePreset,
     accentColor: settings.accentColor,
@@ -148,6 +169,36 @@ export default function Settings() {
       shopify.toast.show("Banner settings saved");
     }
   }, [fetcher.state, fetcher.data, shopify]);
+
+  // Logo image picker: uploads through /app/logo-upload (staged upload into
+  // the store's Files), then drops the returned CDN URL into the form.
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const logoUpload = useFetcher<typeof logoUploadAction>();
+  const isUploadingLogo = logoUpload.state !== "idle";
+
+  useEffect(() => {
+    if (logoUpload.state !== "idle" || !logoUpload.data) return;
+    if (logoUpload.data.ok) {
+      const url = logoUpload.data.url;
+      setForm((previous) => ({ ...previous, logoUrl: url }));
+      shopify.toast.show("Logo uploaded — click Save to apply it");
+    } else {
+      shopify.toast.show(logoUpload.data.message, { isError: true });
+    }
+  }, [logoUpload.state, logoUpload.data, shopify]);
+
+  const onLogoFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    if (!file) return;
+    const data = new FormData();
+    data.append("file", file);
+    logoUpload.submit(data, {
+      method: "POST",
+      action: "/app/logo-upload",
+      encType: "multipart/form-data",
+    });
+    event.currentTarget.value = ""; // allow re-picking the same file
+  };
 
   const errorFor = (field: string): string | undefined =>
     fetcher.data?.errors?.find((error) => error.field === field)?.message;
@@ -214,17 +265,60 @@ export default function Settings() {
             details="Full URL or store path like /policies/privacy-policy. Leave empty to hide the link."
           />
           <s-text-field
-            label="Logo URL"
+            label="Logo"
             value={form.logoUrl}
             onInput={set("logoUrl")}
             error={errorFor("logoUrl")}
             {...(!canEditLogo ? { disabled: true } : {})}
             details={
               canEditLogo
-                ? "Shown above the banner heading. Upload the image in Content → Files and paste its URL. Leave empty for no logo."
+                ? "Upload an image below, or paste an image URL. Leave empty for no logo."
                 : "Pro feature — upgrade on the Plan page to show your company logo on the banner."
             }
           />
+          {canEditLogo && (
+            <>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                style={{ display: "none" }}
+                onChange={onLogoFile}
+              />
+              <s-button
+                onClick={() => logoInputRef.current?.click()}
+                {...(isUploadingLogo ? { loading: true } : {})}
+              >
+                Upload logo image
+              </s-button>
+            </>
+          )}
+          <s-stack direction="inline" gap="base">
+            <s-select
+              label="Logo size"
+              value={form.logoSize}
+              onChange={set("logoSize")}
+              {...(!canEditLogo ? { disabled: true } : {})}
+            >
+              {LOGO_SIZE_OPTIONS.map((option) => (
+                <s-option key={option.value} value={String(option.value)}>
+                  {option.label}
+                </s-option>
+              ))}
+            </s-select>
+            <s-select
+              label="Logo position"
+              value={form.logoPosition}
+              onChange={set("logoPosition")}
+              {...(!canEditLogo ? { disabled: true } : {})}
+            >
+              {LOGO_POSITIONS.map((logoPosition) => (
+                <s-option key={logoPosition} value={logoPosition}>
+                  {LOGO_POSITION_LABELS[logoPosition]}
+                </s-option>
+              ))}
+            </s-select>
+          </s-stack>
         </s-stack>
       </s-section>
 
@@ -348,6 +442,10 @@ export default function Settings() {
           customizeLabel={form.customizeLabel}
           privacyPolicyUrl={form.privacyPolicyUrl}
           logoUrl={canEditLogo ? form.logoUrl : ""}
+          logoSize={canEditLogo ? Number(form.logoSize) || 36 : 36}
+          logoPosition={
+            canEditLogo ? ((form.logoPosition as LogoPosition) ?? "top") : "top"
+          }
           position={(form.position as BannerPosition) ?? "bottom_bar"}
           themePreset={(form.themePreset as ThemePreset) ?? "light"}
           accentColor={form.accentColor}
