@@ -4,6 +4,21 @@ _Last updated: 2026-07-18 (session 3)._
 
 ## ⏸ SESSION-3 STOPPING POINT — resume here
 
+-3. **NEWEST (2026-07-19 latest): competitor-parity round (0c2be0d), NOT
+   deployed.** After researching Pandectes/Consentmo tiers: floating
+   "Privacy choices" reopen pill (free + Appearance toggle,
+   ShopSettings.showReopen + migration — closes the no-way-back-after-
+   decision compliance gap), preferences prefilled from stored consent,
+   Home 30-day consent stats (free; Consentmo charges $34), consent-log
+   CSV export (Pro, /app/log.csv via App Bridge fetch + blob download),
+   app name recased to "Consentinel" in the toml (fixes lowercase admin
+   nav title; applies on deploy). Bundle 18741B / 6.9KB gzip, budget now
+   ≤19KB. Harness-verified reopen→prefill→save→pill-returns loop.
+   COMPETITOR ROADMAP (not built): banner translations/multi-language
+   (both competitors gate by tier), cookie scanner (Phase 2), DSAR page,
+   auto-generated privacy policies, accessibility widget (Consentmo
+   differentiator), Meta/TikTok pixel integrations, IAB TCF.
+
 -2. **NEWEST (2026-07-19 later): logo width + modal/card width + dirty-save
    + position-scoped width controls, NOT deployed.** ShopSettings.cardWidth
    (280–600, default 400) sizes the bottom-left/right cards; the Advanced
