@@ -63,6 +63,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     position: String(form.get("position") ?? ""),
     themePreset: String(form.get("themePreset") ?? ""),
     accentColor: String(form.get("accentColor") ?? ""),
+    showReopen: form.get("showReopen") === "true",
     // The logo is a Pro feature: on the free plan the field is ignored
     // entirely (the UI disables it; this guards against crafted requests).
     ...(canUseLogo(settings.plan)
@@ -151,6 +152,7 @@ function formStateFrom(
     borderWidth: String(settings.borderWidth),
     modalWidth: String(settings.modalWidth),
     cardWidth: String(settings.cardWidth),
+    showReopen: String(settings.showReopen),
   };
 }
 
@@ -361,6 +363,17 @@ export default function Settings() {
             onInput={set("accentColor")}
             error={errorFor("accentColor")}
             details="Used for the accept button and links. Contrast is checked automatically in the preview. On the dark theme pick a light accent so the accept button stands out."
+          />
+          <s-switch
+            label={'Show a floating "Privacy choices" button after a decision'}
+            checked={form.showReopen === "true"}
+            onChange={(event: { currentTarget: { checked: boolean } }) =>
+              setForm((previous) => ({
+                ...previous,
+                showReopen: String(event.currentTarget.checked),
+              }))
+            }
+            details="Lets visitors change their consent later. Recommended: GDPR requires withdrawing consent to be as easy as giving it, and US privacy laws expect a persistent opt-out link."
           />
         </s-stack>
       </s-section>

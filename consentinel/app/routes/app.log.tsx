@@ -2,20 +2,26 @@
  * Read-only consent log: the merchant's audit trail of consent decisions.
  * Populated by the storefront banner (step 5); paginated newest-first.
  */
+import { useState } from "react";
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useSearchParams } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { authenticate } from "../shopify.server";
 import { listConsentEvents } from "../models/consentEvents.server";
+import { getShopSettings } from "../models/shopSettings.server";
 import { REGION_GROUPS } from "../types/consent";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const url = new URL(request.url);
   const page = Number(url.searchParams.get("page") ?? "1") || 1;
-  const result = await listConsentEvents(session.shop, { page, pageSize: 50 });
-  return { result };
+  const [result, settings] = await Promise.all([
+    listConsentEvents(session.shop, { page, pageSize: 50 }),
+    getShopSettings(session.shop),
+  ]);
+  return { result, canExport: settings.plan === "paid" };
 };
 
 const ACTION_LABELS: Record<string, { label: string; tone: "success" | "critical" | "info" | "warning" }> = {
@@ -26,8 +32,39 @@ const ACTION_LABELS: Record<string, { label: string; tone: "success" | "critical
 };
 
 export default function ConsentLog() {
-  const { result } = useLoaderData<typeof loader>();
+  const { result, canExport } = useLoaderData<typeof loader>();
   const [, setSearchParams] = useSearchParams();
+  const shopify = useAppBridge();
+  const [exporting, setExporting] = useState(false);
+
+  // App Bridge attaches the session token to fetch(), so the CSV comes back
+  // as an authenticated response we can hand to the browser as a download.
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      const response = await fetch("/app/log.csv");
+      if (!response.ok) {
+        shopify.toast.show(
+          response.status === 403
+            ? "CSV export is a Pro feature — upgrade on the Plan page"
+            : "Export failed — try again",
+          { isError: true },
+        );
+        return;
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "consent-log.csv";
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      shopify.toast.show("Export failed — try again", { isError: true });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const regionLabel = (code: string | null) =>
     code
@@ -57,13 +94,22 @@ export default function ConsentLog() {
         </s-section>
       ) : (
         <s-section>
-          <s-paragraph>
-            <s-text color="subdued">
-              {result.totalCount} recorded decision
-              {result.totalCount === 1 ? "" : "s"}. Records contain no
-              personally identifiable information.
-            </s-text>
-          </s-paragraph>
+          <s-stack direction="inline" gap="base">
+            <s-paragraph>
+              <s-text color="subdued">
+                {result.totalCount} recorded decision
+                {result.totalCount === 1 ? "" : "s"}. Records contain no
+                personally identifiable information.
+              </s-text>
+            </s-paragraph>
+            <s-button
+              onClick={exportCsv}
+              {...(exporting ? { loading: true } : {})}
+              {...(!canExport ? { disabled: true } : {})}
+            >
+              {canExport ? "Export CSV" : "Export CSV (Pro)"}
+            </s-button>
+          </s-stack>
           <s-table variant="auto">
             <s-table-header-row>
               <s-table-header>Time (UTC)</s-table-header>

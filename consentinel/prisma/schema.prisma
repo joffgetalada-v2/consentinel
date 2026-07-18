@@ -83,6 +83,11 @@ model ShopSettings {
   subscriptionId String? // AppSubscription GID when on the paid plan
   showBranding   Boolean @default(true) // "Powered by" credit; removable on paid plan
 
+  // Floating "Privacy choices" reopen button, shown after a decision so
+  // visitors can withdraw/adjust consent (GDPR) or reach the Do Not Sell
+  // control again (CCPA). On by default; merchants can hide it.
+  showReopen Boolean @default(true)
+
   onboardingDismissed Boolean @default(false)
 
   createdAt DateTime @default(now())

@@ -15,8 +15,8 @@
  *      setTrackingConsent(), update Consent Mode, release blocked scripts
  *      for granted categories, and log the event via the app proxy.
  *
- * Deliberately dependency-free vanilla TypeScript; target bundle ≤ 18KB
- * minified (~6.6KB gzipped — the number that matters on the wire).
+ * Deliberately dependency-free vanilla TypeScript; target bundle ≤ 19KB
+ * minified (~7KB gzipped — the number that matters on the wire).
  * Consent state lives exclusively in Shopify's Customer Privacy API — we
  * never read or write Shopify cookies directly.
  *
@@ -73,6 +73,8 @@ interface ConsentinelConfig {
   position: "bottom_bar" | "bottom_left" | "bottom_right" | "center_modal";
   themePreset: "light" | "dark";
   accentColor: string;
+  /** Floating "Privacy choices" reopen button after a decision. */
+  showReopen: boolean;
   /** Advanced styling (Pro); the server sends the defaults on free. */
   bannerWidth: "contained" | "full";
   fontFamily: "system" | "theme";
@@ -130,6 +132,7 @@ const DEFAULTS: ConsentinelConfig = {
   position: "bottom_bar",
   themePreset: "light",
   accentColor: "#1A1A1A",
+  showReopen: true,
   bannerWidth: "contained",
   fontFamily: "system",
   fontSize: 14,
@@ -500,18 +503,23 @@ function start(api: CustomerPrivacy, country: string): void {
     }
     if (prior.sale_of_data === "") {
       whenBodyReady(() => renderBanner(api, "opt_out"));
+    } else {
+      // CCPA-style regions require the opt-out control to stay reachable.
+      whenBodyReady(() => renderReopen(api, "opt_out"));
     }
     return;
   }
 
   if (needsBanner && config.optIn) {
     if (hasDecision(prior)) {
-      // Returning visitor: honor the stored decision without re-prompting.
+      // Returning visitor: honor the stored decision without re-prompting,
+      // but keep a way back in (GDPR: withdrawing must be as easy as giving).
       applyGrants({
         preferences: prior.preferences === "yes",
         analytics: prior.analytics === "yes",
         marketing: prior.marketing === "yes",
       });
+      whenBodyReady(() => renderReopen(api, "opt_in"));
     } else {
       whenBodyReady(() => renderBanner(api, "opt_in"));
     }
@@ -561,6 +569,8 @@ function submitConsent(
     applyGrants(categories);
     logEvent(mode, action, categories, saleOfData);
     removeBanner();
+    submitting = false; // the decision landed; a reopened banner may submit again
+    renderReopen(api, mode);
   });
 }
 
@@ -613,11 +623,34 @@ function getVisitorToken(): string | null {
 
 let bannerRoot: HTMLElement | null = null;
 let lastFocused: Element | null = null;
+let reopenRoot: HTMLElement | null = null;
 
 function removeBanner(): void {
   bannerRoot?.remove();
   bannerRoot = null;
   if (lastFocused instanceof HTMLElement) lastFocused.focus();
+}
+
+/**
+ * Small floating "Privacy choices" pill shown once a decision exists, so
+ * visitors can withdraw or adjust consent later (GDPR Art. 7(3)) and CCPA
+ * regions keep a persistent route back to the Do Not Sell control.
+ */
+function renderReopen(api: CustomerPrivacy, mode: "opt_in" | "opt_out"): void {
+  if (!config.showReopen || IS_PREVIEW || reopenRoot || bannerRoot) return;
+  reopenRoot = document.createElement("div");
+  reopenRoot.id = "consentinel-reopen";
+  const styleTag = document.createElement("style");
+  styleTag.textContent = styles();
+  reopenRoot.appendChild(styleTag);
+  const pill = button("Privacy choices", "cstl-reopen", () => {
+    reopenRoot?.remove();
+    reopenRoot = null;
+    renderBanner(api, mode);
+  });
+  pill.setAttribute("aria-label", "Privacy choices — review your cookie consent");
+  reopenRoot.appendChild(pill);
+  document.body.appendChild(reopenRoot);
 }
 
 function readableTextColor(hex: string): string {
@@ -715,7 +748,11 @@ function styles(): string {
   margin:0;text-transform:none;min-height:0;transition:background-color .15s ease,filter .15s ease}
 .cstl-banner .cstl-btn:hover{background:${hover}}
 .cstl-banner .cstl-btn:focus-visible,.cstl-banner .cstl-link:focus-visible,
-.cstl-banner .cstl-toggle:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.cstl-banner .cstl-toggle:focus-visible,.cstl-reopen:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.cstl-reopen{position:fixed;left:16px;bottom:16px;z-index:2147483645;background:${surface};color:${text};
+  border:1px solid ${border};border-radius:999px;padding:10px 16px;${f(600, 13, 1)}letter-spacing:normal;
+  text-transform:none;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.18);margin:0;min-height:0}
+.cstl-reopen:hover{background:${hover}}
 .cstl-banner .cstl-btn--primary{background:${accent};border-color:${accent};color:${accentText}}
 .cstl-banner .cstl-btn--primary:hover{background:${accent};filter:brightness(1.12)}
 .cstl-banner .cstl-link{${f(500, bfs, 1)}letter-spacing:normal;background:none;border:none;padding:11px 4px;margin:0;
@@ -822,7 +859,12 @@ function renderBanner(api: CustomerPrivacy, mode: "opt_in" | "opt_out"): void {
         submitConsent(api, "opt_out", "sale_opt_out", { preferences: true, analytics: false, marketing: false }, false),
       ),
     );
-    actions.appendChild(button("Dismiss", "cstl-btn", () => removeBanner()));
+    actions.appendChild(
+      button("Dismiss", "cstl-btn", () => {
+        removeBanner();
+        renderReopen(api, "opt_out");
+      }),
+    );
   } else {
     actions.appendChild(
       button(config.acceptLabel, "cstl-btn cstl-btn--primary", () =>
@@ -853,15 +895,22 @@ function renderBanner(api: CustomerPrivacy, mode: "opt_in" | "opt_out"): void {
 
 /** Swaps the banner content for the category preferences view. */
 function renderPreferences(api: CustomerPrivacy, panel: HTMLElement): void {
-  const state = { preferences: false, analytics: false, marketing: false };
+  // Prefill from the stored decision so a returning visitor sees (and can
+  // adjust) what they actually granted, not a blank slate.
+  const prior = IS_PREVIEW ? null : api.currentVisitorConsent();
+  const state = {
+    preferences: prior?.preferences === "yes",
+    analytics: prior?.analytics === "yes",
+    marketing: prior?.marketing === "yes",
+  };
 
   panel.innerHTML =
     `<h2 class="cstl-heading" id="cstl-heading">Privacy preferences</h2>` +
     `<ul class="cstl-cats">` +
-    categoryRow("Necessary", "Required for the store to function. Always on.", null) +
-    categoryRow("Preferences", "Remembers your settings, like language or region.", "preferences") +
-    categoryRow("Analytics", "Helps us understand how the store is used.", "analytics") +
-    categoryRow("Marketing", "Used to personalize and measure advertising.", "marketing") +
+    categoryRow("Necessary", "Required for the store to function. Always on.", null, true) +
+    categoryRow("Preferences", "Remembers your settings, like language or region.", "preferences", state.preferences) +
+    categoryRow("Analytics", "Helps us understand how the store is used.", "analytics", state.analytics) +
+    categoryRow("Marketing", "Used to personalize and measure advertising.", "marketing", state.marketing) +
     `</ul>` +
     `<div class="cstl-actions"></div>`;
 
@@ -888,11 +937,16 @@ function renderPreferences(api: CustomerPrivacy, panel: HTMLElement): void {
   trapFocus(panel);
 }
 
-function categoryRow(name: string, description: string, category: Category | null): string {
+function categoryRow(
+  name: string,
+  description: string,
+  category: Category | null,
+  checked: boolean,
+): string {
   const control =
     category === null
       ? `<input class="cstl-toggle" type="checkbox" checked disabled aria-label="${name} (always on)">`
-      : `<input class="cstl-toggle" type="checkbox" data-cat="${category}" aria-label="${name}">`;
+      : `<input class="cstl-toggle" type="checkbox"${checked ? " checked" : ""} data-cat="${category}" aria-label="${name}">`;
   // The whole row is a <label>, so clicking the text toggles the checkbox.
   const locked = category === null ? " cstl-catrow--locked" : "";
   return (

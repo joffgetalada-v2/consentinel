@@ -3,7 +3,7 @@
 client_id = "c745ec58d125629b390eb4d4a33fe529"
 application_url = "https://example.com"
 embedded = true
-name = "consentinel"
+name = "Consentinel"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes

@@ -33,6 +33,8 @@ interface StorefrontConfig {
   position: string;
   themePreset: string;
   accentColor: string;
+  /** Floating "Privacy choices" reopen button (free; compliance feature). */
+  showReopen: boolean;
   /** Advanced styling (Pro); the free plan always serves the defaults. */
   bannerWidth: string;
   fontFamily: string;
@@ -73,6 +75,7 @@ export async function buildStorefrontConfig(shop: string): Promise<StorefrontCon
     position: settings.position,
     themePreset: settings.themePreset,
     accentColor: settings.accentColor,
+    showReopen: settings.showReopen,
     bannerWidth: styled ? settings.bannerWidth : "contained",
     fontFamily: styled ? settings.fontFamily : "system",
     fontSize: styled ? settings.fontSize : STYLE_LIMITS.fontSize.fallback,

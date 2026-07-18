@@ -55,6 +55,7 @@ export interface ShopSettingsInput {
   borderWidth?: number;
   modalWidth?: number;
   cardWidth?: number;
+  showReopen?: boolean;
   onboardingDismissed?: boolean;
 }
 

@@ -35,11 +35,25 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Merchants land here whenever they open the app, so this is where the
   // cached plan gets reconciled with the Billing API (expired trials,
   // subscriptions cancelled outside the app).
-  const [settings, rules, eventCount] = await Promise.all([
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const [settings, rules, eventCount, recentByAction] = await Promise.all([
     syncPlanFromBilling(billing, admin, session.shop),
     getRegionRules(session.shop),
     prisma.consentEvent.count({ where: { shop: session.shop } }),
+    prisma.consentEvent.groupBy({
+      by: ["action"],
+      where: { shop: session.shop, createdAt: { gte: since } },
+      _count: { _all: true },
+    }),
   ]);
+
+  const countFor = (action: string) =>
+    recentByAction.find((row) => row.action === action)?._count._all ?? 0;
+  const accepts = countFor("accept_all");
+  const rejects = countFor("reject_all");
+  const custom = countFor("custom");
+  const optOuts = countFor("sale_opt_out");
+  const optInTotal = accepts + rejects + custom;
 
   return {
     themeEditorUrl: buildThemeEditorUrl(session.shop),
@@ -47,6 +61,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     activeRegionCount: rules.filter((rule) => rule.enabled).length,
     totalRegionCount: rules.length,
     eventCount,
+    stats30: {
+      total: optInTotal + optOuts,
+      accepts,
+      rejects,
+      custom,
+      optOuts,
+      // Share of opt-in banner decisions that granted everything.
+      acceptRate: optInTotal > 0 ? Math.round((accepts / optInTotal) * 100) : null,
+    },
     plan: settings.plan,
   };
 };
@@ -93,12 +116,33 @@ export default function Index() {
         </s-stack>
       </s-section>
 
-      <s-section heading="Consent activity">
-        <s-paragraph>
-          {data.eventCount === 0
-            ? "No consent decisions recorded yet. Activity appears once the banner is live."
-            : `${data.eventCount} consent decision${data.eventCount === 1 ? "" : "s"} recorded.`}
-        </s-paragraph>
+      <s-section heading="Consent activity — last 30 days">
+        {data.stats30.total === 0 ? (
+          <s-paragraph>
+            {data.eventCount === 0
+              ? "No consent decisions recorded yet. Activity appears once the banner is live."
+              : "No decisions in the last 30 days."}
+          </s-paragraph>
+        ) : (
+          <s-stack direction="block" gap="base">
+            <s-stack direction="inline" gap="base">
+              <Stat label="Decisions" value={String(data.stats30.total)} />
+              <Stat label="Accepted all" value={String(data.stats30.accepts)} />
+              <Stat label="Rejected all" value={String(data.stats30.rejects)} />
+              <Stat label="Customized" value={String(data.stats30.custom)} />
+              <Stat label="Opt-outs (US)" value={String(data.stats30.optOuts)} />
+              {data.stats30.acceptRate !== null && (
+                <Stat label="Accept rate" value={`${data.stats30.acceptRate}%`} />
+              )}
+            </s-stack>
+            <s-paragraph>
+              <s-text color="subdued">
+                {data.eventCount} decision{data.eventCount === 1 ? "" : "s"}{" "}
+                recorded all-time. Records contain no personal information.
+              </s-text>
+            </s-paragraph>
+          </s-stack>
+        )}
         <s-button href="/app/log">View consent log</s-button>
       </s-section>
 
@@ -133,6 +177,17 @@ export default function Index() {
         </s-unordered-list>
       </s-section>
     </s-page>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <s-box padding="base" borderWidth="base" borderRadius="base">
+      <s-stack direction="block" gap="small-300">
+        <s-heading>{value}</s-heading>
+        <s-text color="subdued">{label}</s-text>
+      </s-stack>
+    </s-box>
   );
 }
 
