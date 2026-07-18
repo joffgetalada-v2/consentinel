@@ -24,6 +24,9 @@
        # Shopify's cookie-banner region settings — those are OFF when this
        # app replaces the native banner. %}
     country: {{ localization.country.iso_code | json }},
+    {% # Storefront language for banner translations (Pro): the bundle picks
+       # config.i18n[locale] and falls back to English. %}
+    locale: {{ request.locale.iso_code | json }},
     proxyUrl: "/apps/consentinel/consent"
   };
 </script>

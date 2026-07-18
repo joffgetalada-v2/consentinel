@@ -13,6 +13,7 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { syncPlanFromBilling } from "../models/billing.server";
 import { getRegionRules } from "../models/regionRules.server";
+import { isEmbedActive } from "../models/embedStatus.server";
 import prisma from "../db.server";
 
 /**
@@ -36,16 +37,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // cached plan gets reconciled with the Billing API (expired trials,
   // subscriptions cancelled outside the app).
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const [settings, rules, eventCount, recentByAction] = await Promise.all([
-    syncPlanFromBilling(billing, admin, session.shop),
-    getRegionRules(session.shop),
-    prisma.consentEvent.count({ where: { shop: session.shop } }),
-    prisma.consentEvent.groupBy({
-      by: ["action"],
-      where: { shop: session.shop, createdAt: { gte: since } },
-      _count: { _all: true },
-    }),
-  ]);
+  const [settings, rules, eventCount, recentByAction, embedActive] =
+    await Promise.all([
+      syncPlanFromBilling(billing, admin, session.shop),
+      getRegionRules(session.shop),
+      prisma.consentEvent.count({ where: { shop: session.shop } }),
+      prisma.consentEvent.groupBy({
+        by: ["action"],
+        where: { shop: session.shop, createdAt: { gte: since } },
+        _count: { _all: true },
+      }),
+      isEmbedActive(admin),
+    ]);
 
   const countFor = (action: string) =>
     recentByAction.find((row) => row.action === action)?._count._all ?? 0;
@@ -57,6 +60,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   return {
     themeEditorUrl: buildThemeEditorUrl(session.shop),
+    embedActive,
     hasPolicyUrl: Boolean(settings.privacyPolicyUrl),
     activeRegionCount: rules.filter((rule) => rule.enabled).length,
     totalRegionCount: rules.length,
@@ -85,9 +89,13 @@ export default function Index() {
         </s-paragraph>
         <s-stack direction="block" gap="base">
           <ChecklistItem
-            done={false}
+            done={data.embedActive === true}
             title="1. Activate the app embed in your theme"
-            description="The banner is delivered as a theme app embed. This link opens the theme editor with the Consentinel embed pre-toggled — just click Save."
+            description={
+              data.embedActive === true
+                ? "Done — the Consentinel embed is active in your live theme."
+                : "The banner is delivered as a theme app embed. This link opens the theme editor with the Consentinel embed pre-toggled — just click Save."
+            }
           >
             <s-button href={data.themeEditorUrl} target="_blank" variant="primary">
               Open theme editor

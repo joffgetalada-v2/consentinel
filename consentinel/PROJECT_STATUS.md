@@ -14,10 +14,24 @@ _Last updated: 2026-07-18 (session 3)._
    app name recased to "Consentinel" in the toml (fixes lowercase admin
    nav title; applies on deploy). Bundle 18741B / 6.9KB gzip, budget now
    ≤19KB. Harness-verified reopen→prefill→save→pill-returns loop.
-   COMPETITOR ROADMAP (not built): banner translations/multi-language
-   (both competitors gate by tier), cookie scanner (Phase 2), DSAR page,
+   COMPETITOR ROADMAP (not built): cookie scanner (Phase 2), DSAR page,
    auto-generated privacy policies, accessibility widget (Consentmo
    differentiator), Meta/TikTok pixel integrations, IAB TCF.
+
+-4. **NEWEST (2026-07-19 latest+1): banner translations (Pro) + embed
+   detection, NOT deployed.** Translations: BannerTranslation model +
+   migration; server dictionary of ALL banner strings in de/fr/es/it/nl/pt
+   (app/models/translations.server.ts — fixed UI strings auto-translate,
+   content fields seeded then merchant-editable); Pro-gated i18n map in the
+   config metafield (short keys hd/bd/ac/rj/cu/ph/sv/nn..pp); bundle picks
+   config.i18n[lang] from Liquid request.locale with English fallback; new
+   /app/translations page + nav link; plan bullet added. Embed detection:
+   read_themes scope added (scopes now "read_themes,write_files"), Home
+   checklist item 1 reads settings_data.json via
+   app/models/embedStatus.server.ts (true/false/null-unknown — never
+   crashes Home). Bundle 19101B / 6.9KB gzip (≤19KB budget).
+   Harness-verified French banner (fr-CA → fr) main + Customize views.
+   Deploy + app re-open (scope grant) + merchant tests owed.
 
 -2. **NEWEST (2026-07-19 later): logo width + modal/card width + dirty-save
    + position-scoped width controls, NOT deployed.** ShopSettings.cardWidth

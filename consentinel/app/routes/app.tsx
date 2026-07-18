@@ -20,6 +20,7 @@ export default function App() {
       <s-app-nav>
         <s-link href="/app">Home</s-link>
         <s-link href="/app/settings">Banner settings</s-link>
+        <s-link href="/app/translations">Translations</s-link>
         <s-link href="/app/regions">Region rules</s-link>
         <s-link href="/app/log">Consent log</s-link>
         <s-link href="/app/plan">Plan</s-link>

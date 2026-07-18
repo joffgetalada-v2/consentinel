@@ -14,6 +14,7 @@
 import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 import { getShopSettings } from "./shopSettings.server";
 import { getRegionRules } from "./regionRules.server";
+import { buildI18n, type LocaleStrings } from "./translations.server";
 import { canUseAdvancedStyling } from "./billing.server";
 import { STYLE_LIMITS } from "../types/consent";
 
@@ -53,6 +54,8 @@ interface StorefrontConfig {
    * a double banner).
    */
   regions: { region: string; mode: string }[];
+  /** Per-locale banner strings (Pro); absent on the free plan. */
+  i18n?: Record<string, LocaleStrings>;
 }
 
 export async function buildStorefrontConfig(shop: string): Promise<StorefrontConfig> {
@@ -61,7 +64,10 @@ export async function buildStorefrontConfig(shop: string): Promise<StorefrontCon
     getRegionRules(shop),
   ]);
   const styled = canUseAdvancedStyling(settings.plan);
+  // Translations are Pro: only fetch/ship the map when it can apply.
+  const i18n = settings.plan === "paid" ? await buildI18n(shop) : {};
   return {
+    ...(Object.keys(i18n).length > 0 ? { i18n } : {}),
     v: 2,
     heading: settings.heading,
     body: settings.body,

@@ -9,8 +9,10 @@ name = "Consentinel"
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 # write_files: the merchant-logo image picker uploads to the store's Files
 # (stagedUploadsCreate + fileCreate in app/routes/app.logo-upload.tsx).
+# read_themes: the Home checklist reads settings_data.json to show whether
+# the consent-banner app embed is actually enabled in the live theme.
 # Everything else works on app-owned data only.
-scopes = "write_files"
+scopes = "read_themes,write_files"
 
 [webhooks]
 api_version = "2026-10"

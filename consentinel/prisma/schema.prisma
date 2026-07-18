@@ -94,6 +94,28 @@ model ShopSettings {
   updatedAt DateTime @updatedAt
 }
 
+// Per-locale banner content (Pro). Fixed UI strings (category names, the
+// preferences heading, opt-out texts…) ship from the server-side dictionary
+// in app/models/translations.server.ts; this stores the merchant-editable
+// content fields. Delivered to the storefront inside the config metafield.
+model BannerTranslation {
+  id     String @id @default(cuid())
+  shop   String
+  locale String // 2-letter ISO 639-1 (de, fr, es, it, nl, pt)
+
+  heading        String
+  body           String
+  acceptLabel    String
+  rejectLabel    String
+  customizeLabel String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shop, locale])
+  @@index([shop])
+}
+
 // Which consent model applies to visitors from a given region group.
 // Merchants toggle these in the admin; the storefront embed resolves the
 // visitor's region (via Shopify's Customer Privacy API signals) against

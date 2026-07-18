@@ -88,6 +88,8 @@ interface ConsentinelConfig {
   optOut: boolean;
   /** Enabled region rules for client-side region resolution. */
   regions: { region: string; mode: string }[];
+  /** Per-locale string overrides (Pro); short keys, English fallback. */
+  i18n?: Record<string, Record<string, string>> | null;
 }
 
 declare global {
@@ -104,6 +106,8 @@ declare global {
       config: Partial<ConsentinelConfig> | null;
       /** Visitor country (ISO) from Liquid `localization.country`. */
       country?: string | null;
+      /** Storefront language from Liquid `request.locale`. */
+      locale?: string | null;
       proxyUrl: string;
     };
   }
@@ -147,6 +151,22 @@ const DEFAULTS: ConsentinelConfig = {
 const bootData = window.__consentinel;
 const config: ConsentinelConfig = { ...DEFAULTS, ...(bootData?.config ?? {}) };
 const proxyUrl = bootData?.proxyUrl ?? "/apps/consentinel/consent";
+
+// Translations (Pro): pick the visitor's language from the storefront
+// locale ("fr-CA" → "fr"); every string falls back to English when the
+// merchant hasn't configured that language.
+const visitorLang = (bootData?.locale || "").split("-")[0].toLowerCase();
+const tr: Record<string, string> =
+  (config.i18n && config.i18n[visitorLang]) || {};
+function T(key: string, fallback: string): string {
+  return tr[key] || fallback;
+}
+// Merchant content fields translate through the same map.
+if (tr.hd) config.heading = tr.hd;
+if (tr.bd) config.body = tr.bd;
+if (tr.ac) config.acceptLabel = tr.ac;
+if (tr.rj) config.rejectLabel = tr.rj;
+if (tr.cu) config.customizeLabel = tr.cu;
 
 /**
  * Merchant preview: ?consentinel_preview=1 force-renders the banner
@@ -643,12 +663,12 @@ function renderReopen(api: CustomerPrivacy, mode: "opt_in" | "opt_out"): void {
   const styleTag = document.createElement("style");
   styleTag.textContent = styles();
   reopenRoot.appendChild(styleTag);
-  const pill = button("Privacy choices", "cstl-reopen", () => {
+  const pill = button(T("rp", "Privacy choices"), "cstl-reopen", () => {
     reopenRoot?.remove();
     reopenRoot = null;
     renderBanner(api, mode);
   });
-  pill.setAttribute("aria-label", "Privacy choices — review your cookie consent");
+  pill.setAttribute("aria-label", T("ph", "Privacy preferences"));
   reopenRoot.appendChild(pill);
   document.body.appendChild(reopenRoot);
 }
@@ -817,14 +837,19 @@ function renderBanner(api: CustomerPrivacy, mode: "opt_in" | "opt_out"): void {
   panel.setAttribute("aria-describedby", "cstl-body");
 
   const policyLink = config.privacyPolicyUrl
-    ? ` <a href="${escapeAttribute(config.privacyPolicyUrl)}">Privacy policy</a>`
+    ? ` <a href="${escapeAttribute(config.privacyPolicyUrl)}">${escapeHtml(T("pp", "Privacy policy"))}</a>`
     : "";
 
   const heading =
-    mode === "opt_out" ? "Your privacy choices" : escapeHtml(config.heading);
+    mode === "opt_out" ? escapeHtml(T("oh", "Your privacy choices")) : escapeHtml(config.heading);
   const body =
     mode === "opt_out"
-      ? "We may share information about your use of our site for advertising. You can opt out of the sale or sharing of your personal information."
+      ? escapeHtml(
+          T(
+            "ob",
+            "We may share information about your use of our site for advertising. You can opt out of the sale or sharing of your personal information.",
+          ),
+        )
       : escapeHtml(config.body);
   // Merchant logo (Pro): decorative next to the heading, so alt stays empty.
   const logo = config.logoUrl
@@ -855,12 +880,12 @@ function renderBanner(api: CustomerPrivacy, mode: "opt_in" | "opt_out"): void {
 
   if (mode === "opt_out") {
     actions.appendChild(
-      button("Do Not Sell or Share My Personal Information", "cstl-btn cstl-btn--primary", () =>
+      button(T("oo", "Do Not Sell or Share My Personal Information"), "cstl-btn cstl-btn--primary", () =>
         submitConsent(api, "opt_out", "sale_opt_out", { preferences: true, analytics: false, marketing: false }, false),
       ),
     );
     actions.appendChild(
-      button("Dismiss", "cstl-btn", () => {
+      button(T("dm", "Dismiss"), "cstl-btn", () => {
         removeBanner();
         renderReopen(api, "opt_out");
       }),
@@ -905,12 +930,12 @@ function renderPreferences(api: CustomerPrivacy, panel: HTMLElement): void {
   };
 
   panel.innerHTML =
-    `<h2 class="cstl-heading" id="cstl-heading">Privacy preferences</h2>` +
+    `<h2 class="cstl-heading" id="cstl-heading">${escapeHtml(T("ph", "Privacy preferences"))}</h2>` +
     `<ul class="cstl-cats">` +
-    categoryRow("Necessary", "Required for the store to function. Always on.", null, true) +
-    categoryRow("Preferences", "Remembers your settings, like language or region.", "preferences", state.preferences) +
-    categoryRow("Analytics", "Helps us understand how the store is used.", "analytics", state.analytics) +
-    categoryRow("Marketing", "Used to personalize and measure advertising.", "marketing", state.marketing) +
+    categoryRow(T("nn", "Necessary"), T("nd", "Required for the store to function. Always on."), null, true) +
+    categoryRow(T("pn", "Preferences"), T("pd", "Remembers your settings, like language or region."), "preferences", state.preferences) +
+    categoryRow(T("an", "Analytics"), T("ad", "Helps us understand how the store is used."), "analytics", state.analytics) +
+    categoryRow(T("mn", "Marketing"), T("md", "Used to personalize and measure advertising."), "marketing", state.marketing) +
     `</ul>` +
     `<div class="cstl-actions"></div>`;
 
@@ -923,7 +948,7 @@ function renderPreferences(api: CustomerPrivacy, panel: HTMLElement): void {
 
   const actions = panel.querySelector(".cstl-actions")!;
   actions.appendChild(
-    button("Save preferences", "cstl-btn cstl-btn--primary", () =>
+    button(T("sv", "Save preferences"), "cstl-btn cstl-btn--primary", () =>
       submitConsent(api, "opt_in", "custom", { ...state }, null),
     ),
   );
