@@ -9,8 +9,12 @@ _Last updated: 2026-07-18 (session 3)._
    (280–600, default 400) sizes the bottom-left/right cards; the Advanced
    styling section now shows ONLY the width control matching the selected
    position (bar select / modal field / card field). Harness-verified
-   560px dark card with 140px side logo. Bundle 17351B min / 6.4KB gzip
-   (focus-visible rules merged to pay for it). logoSize reinterpreted as WIDTH px (text field, clamped
+   560px dark card with 140px side logo. PLUS mobile polish (merchant
+   report "not professional on mobile"): side logos stack above the text
+   ≤760px, logo capped at min(logoSize, 55vw) ≤520px, and body/heading/
+   button fonts step down one notch (floor 13px) ≤520px — verified at 375px
+   in the harness. Budget RESTATED to ≤18KB min; now 17754B / 6.6KB gzip
+   (wire cost is what matters). logoSize reinterpreted as WIDTH px (text field, clamped
    20–200, migration resets existing rows to 120 — height now scales with
    the image, fixing the "logo looks small/cramped" report); new
    ShopSettings.modalWidth (text field, 320–720, default 460) drives the

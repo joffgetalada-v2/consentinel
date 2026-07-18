@@ -15,8 +15,8 @@
  *      setTrackingConsent(), update Consent Mode, release blocked scripts
  *      for granted categories, and log the event via the app proxy.
  *
- * Deliberately dependency-free vanilla TypeScript; target bundle ≤ 17KB
- * minified (~6.5KB gzipped — the number that matters on the wire).
+ * Deliberately dependency-free vanilla TypeScript; target bundle ≤ 18KB
+ * minified (~6.6KB gzipped — the number that matters on the wire).
  * Consent state lives exclusively in Shopify's Customer Privacy API — we
  * never read or write Shopify cookies directly.
  *
@@ -656,6 +656,9 @@ function styles(): string {
   const ls = num(config.logoSize, 20, 200, 120);
   const mw = num(config.modalWidth, 320, 720, 460);
   const cw = num(config.cardWidth, 280, 600, 400);
+  // Phone sizes step down one notch from the merchant's choices (floor 13px).
+  const fsm = Math.max(13, fs - 1);
+  const bfsm = Math.max(13, bfs - 1);
   // Every element sets font via shorthand (so theme element selectors can't
   // leak in); when the merchant picks "match my theme's font", a trailing
   // font-family:inherit re-adopts the theme typeface while keeping our
@@ -734,9 +737,15 @@ function styles(): string {
   height:10px;border:solid ${surface};border-width:0 2px 2px 0;transform:rotate(45deg)}
 .cstl-banner .cstl-toggle:disabled{opacity:.5;cursor:not-allowed}
 @media (max-width:760px){.cstl-banner--bottom_bar .cstl-main{flex-direction:column;align-items:stretch;gap:0}
-  .cstl-banner--bottom_bar .cstl-body{margin:0 0 16px}}
+  .cstl-banner--bottom_bar .cstl-body{margin:0 0 16px}
+  .cstl-content--ll,.cstl-content--lr{display:block}
+  .cstl-content--ll .cstl-logo,.cstl-content--lr .cstl-logo{margin:0 0 12px}}
 @media (max-width:520px){.cstl-banner{left:12px;right:12px;bottom:12px;width:auto;max-width:none;padding:18px;
-  transform:none;top:auto}.cstl-banner--wfull{left:0;right:0;bottom:0}
+  transform:none;top:auto;font-size:${fsm}px}.cstl-banner--wfull{left:0;right:0;bottom:0}
+  .cstl-banner .cstl-heading{font-size:${fsm + 2}px}
+  .cstl-banner .cstl-body{font-size:${fsm}px}
+  .cstl-banner .cstl-btn,.cstl-banner .cstl-link{font-size:${bfsm}px}
+  .cstl-banner .cstl-logo{max-width:min(${ls}px,55vw)}
   .cstl-actions .cstl-btn{flex:1 1 40%;text-align:center;padding:11px 12px}}
 @media (prefers-reduced-motion:no-preference){.cstl-banner{animation:cstl-in .28s cubic-bezier(.16,1,.3,1)}}
 @keyframes cstl-in{from{opacity:0}to{opacity:1}}
