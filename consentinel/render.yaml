@@ -1,0 +1,36 @@
+# Render Blueprint: provisions the Consentinel web service + PostgreSQL in
+# one step. In the Render dashboard: New → Blueprint → connect this repo.
+# Render reads this file and creates both services below.
+#
+# After creation, set the SECRET env vars (marked sync:false) in the Render
+# dashboard — they are intentionally NOT stored in the repo:
+#   SHOPIFY_API_KEY, SHOPIFY_API_SECRET, SHOPIFY_APP_URL
+# SHOPIFY_APP_URL is your Render web-service URL, e.g.
+#   https://consentinel.onrender.com
+# and must also be set as application_url + auth redirect in shopify.app.toml.
+services:
+  - type: web
+    name: consentinel
+    runtime: docker
+    plan: starter # $7/mo; bump to standard if you outgrow it
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: consentinel-db
+          property: connectionString
+      - key: SHOPIFY_BILLING_TEST
+        value: "false" # real charges in production
+      - key: NODE_ENV
+        value: production
+      - key: SHOPIFY_API_KEY
+        sync: false # set in dashboard
+      - key: SHOPIFY_API_SECRET
+        sync: false # set in dashboard
+      - key: SHOPIFY_APP_URL
+        sync: false # set in dashboard to the Render URL
+
+databases:
+  - name: consentinel-db
+    plan: basic-256mb # $7/mo Starter Postgres; plenty for a consent app
+    postgresMajorVersion: "16"

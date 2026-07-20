@@ -80,6 +80,10 @@ changes are needed.
 
 ## Deployment
 
+**For the full production launch (Render + Postgres), follow the step-by-step
+runbook in [DEPLOY.md](DEPLOY.md).** A `render.yaml` Blueprint provisions the
+web service + database in one step; `/healthz` is the platform health check.
+
 Any Node host works. The included `Dockerfile` (Node 22, runs
 `npm run setup && npm run start`) suits Render, Railway, and Fly out of the box:
 
