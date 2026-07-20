@@ -33,6 +33,13 @@ api_version = "2026-10"
   uri = "/webhooks/app/scopes_update"
   topics = [ "app/scopes_update" ]
 
+  # Instant plan-cache sync when a subscription changes outside the app
+  # (approval, cancellation, declined charge, frozen billing). The app-open
+  # reconciliation in billing.server.ts remains the safety net.
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/subscriptions_update"
+  topics = [ "app_subscriptions/update" ]
+
 [auth]
 redirect_urls = [ "https://example.com/api/auth" ]
 

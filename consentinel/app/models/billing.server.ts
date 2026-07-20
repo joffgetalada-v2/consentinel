@@ -61,6 +61,42 @@ export function canUseAdvancedStyling(plan: string): boolean {
 // Plan cache reconciliation
 // ---------------------------------------------------------------------------
 
+/**
+ * Applies an APP_SUBSCRIPTIONS_UPDATE webhook to the plan cache. Mirrors
+ * syncPlanFromBilling but trusts the webhook payload instead of calling
+ * billing.check (webhook contexts have no billing helper). PENDING means the
+ * merchant hasn't approved the charge yet — the cache must not change.
+ */
+export async function applySubscriptionUpdate(
+  admin: AdminApiContext,
+  shop: string,
+  subscriptionStatus: string,
+  subscriptionGid: string | null,
+): Promise<void> {
+  if (subscriptionStatus === "PENDING") return;
+
+  const settings = await getShopSettings(shop);
+  const plan = subscriptionStatus === "ACTIVE" ? "paid" : "free";
+  const subscriptionId = plan === "paid" ? subscriptionGid : null;
+  // Same downgrade rule as syncPlanFromBilling: leaving the paid plan
+  // forcibly restores the "Powered by" credit.
+  const showBranding = plan === "paid" ? settings.showBranding : true;
+
+  if (
+    settings.plan === plan &&
+    settings.subscriptionId === subscriptionId &&
+    settings.showBranding === showBranding
+  ) {
+    return;
+  }
+
+  await prisma.shopSettings.update({
+    where: { shop },
+    data: { plan, subscriptionId, showBranding },
+  });
+  await syncStorefrontConfig(admin, shop);
+}
+
 export async function syncPlanFromBilling(
   billing: BillingChecker,
   admin: AdminApiContext,

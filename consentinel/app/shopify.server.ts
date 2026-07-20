@@ -7,6 +7,7 @@ import {
 } from "@shopify/shopify-app-react-router/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
+import { syncStorefrontConfig } from "./models/storefrontConfig.server";
 
 // Billing plan definition. The Billing API is the source of truth for a
 // shop's subscription; ShopSettings.plan is only a cached copy (see
@@ -37,6 +38,21 @@ const shopify = shopifyApp({
           interval: BillingInterval.Every30Days,
         },
       ],
+    },
+  },
+  hooks: {
+    // First install (and re-auth): seed settings + region rules and write the
+    // banner_config metafield immediately. Without this, a fresh install that
+    // never pressed Save had no metafield, so the storefront embed stayed
+    // silent until the merchant's first save.
+    afterAuth: async ({ session, admin }) => {
+      try {
+        await syncStorefrontConfig(admin, session.shop);
+      } catch (error) {
+        // Never break OAuth over a config sync; the next settings save or
+        // plan reconciliation repairs the metafield.
+        console.error(`First-install config sync failed for ${session.shop}`, error);
+      }
     },
   },
   future: {
