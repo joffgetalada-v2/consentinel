@@ -14,6 +14,7 @@ import { authenticate } from "../shopify.server";
 import { syncPlanFromBilling } from "../models/billing.server";
 import { getRegionRules } from "../models/regionRules.server";
 import { isEmbedActive } from "../models/embedStatus.server";
+import { getLatestScan } from "../models/scanner.server";
 import prisma from "../db.server";
 
 /**
@@ -37,7 +38,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // cached plan gets reconciled with the Billing API (expired trials,
   // subscriptions cancelled outside the app).
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const [settings, rules, eventCount, recentByAction, embedActive] =
+  const [settings, rules, eventCount, recentByAction, embedActive, scan] =
     await Promise.all([
       syncPlanFromBilling(billing, admin, session.shop),
       getRegionRules(session.shop),
@@ -48,6 +49,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         _count: { _all: true },
       }),
       isEmbedActive(admin),
+      getLatestScan(session.shop),
     ]);
 
   const countFor = (action: string) =>
@@ -75,6 +77,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       acceptRate: optInTotal > 0 ? Math.round((accepts / optInTotal) * 100) : null,
     },
     plan: settings.plan,
+    scanTrackerCount:
+      scan?.status === "completed"
+        ? scan.findings.filter((finding) => finding.category !== "essential")
+            .length
+        : null,
   };
 };
 
@@ -152,6 +159,19 @@ export default function Index() {
           </s-stack>
         )}
         <s-button href="/app/log">View consent log</s-button>
+      </s-section>
+
+      <s-section slot="aside" heading="Cookie scanner">
+        <s-paragraph>
+          {data.scanTrackerCount === null
+            ? "See which tracking scripts your store loads, and which ones Consentinel holds until visitors consent."
+            : data.scanTrackerCount === 0
+              ? "Last scan found no third-party trackers. Re-run after installing new apps."
+              : `Last scan found ${data.scanTrackerCount} third-party service${data.scanTrackerCount === 1 ? "" : "s"} on your store.`}
+        </s-paragraph>
+        <s-button href="/app/scanner" variant={data.scanTrackerCount === null ? "primary" : undefined}>
+          {data.scanTrackerCount === null ? "Scan your store" : "View scan results"}
+        </s-button>
       </s-section>
 
       <s-section slot="aside" heading="Plan">

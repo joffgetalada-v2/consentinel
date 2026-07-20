@@ -116,6 +116,22 @@ model BannerTranslation {
   @@index([shop])
 }
 
+// Latest cookie-scan result per shop (upserted on every scan — no history).
+// pagesScanned/findings are JSON strings because SQLite has no JSON type;
+// shapes live in app/models/scanner.server.ts (ScanReport / TrackerFinding).
+model ScanResult {
+  id   String @id @default(cuid())
+  shop String @unique
+
+  status               String    @default("completed") // completed | failed
+  startedAt            DateTime  @default(now())
+  completedAt          DateTime?
+  storefrontAccessible Boolean   @default(true)
+  pagesScanned         String    @default("[]")
+  findings             String    @default("[]")
+  error                String?
+}
+
 // Which consent model applies to visitors from a given region group.
 // Merchants toggle these in the admin; the storefront embed resolves the
 // visitor's region (via Shopify's Customer Privacy API signals) against
