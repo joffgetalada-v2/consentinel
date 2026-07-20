@@ -43,19 +43,57 @@ _Last updated: 2026-07-20 (session 4)._
      NEVER added to the purge — real compliance gap) and ScanResult now
      deleted in the redact transaction.
 
-2. Merchant steps owed: restart dev server from an interactive terminal
-   (new migration `add_scan_result` → new Prisma client), then
-   `shopify app deploy --allow-updates` (the toml webhook change requires
-   a deploy). Then test: /app/scanner on the dev store (expect the
-   password-protected notice; findings come from theme + app embeds),
-   Home scanner card, first-install flow if convenient (reinstall on a
-   scratch store → banner config exists immediately), plan upgrade/cancel
-   → plan flips without reopening the app (webhook working).
+2. **Launch-prep batch DEPLOYED + MERCHANT-VERIFIED (2026-07-20 evening).**
+   Scanner works on the dev store (password-protected notice + theme/app-
+   embed results, screenshot confirmed), 14-day trial upgrade + cancel
+   round-trip clean (subscriptions webhook working). No issues found.
 
-3. Remaining before App Store submission: production hosting + Postgres
+3. **NEWEST (2026-07-20 late): competitor-parity batch — built + verified,
+   NOT DEPLOYED, NOT merchant-tested.** From the COMPETITORS.md research
+   round (merchant approved: "DSAR + GPC free, policy generator Pro"):
+   - **GPC signal support (free, ONLY storefront change):** in opt-out
+     regions with no stored decision, navigator.globalPrivacyControl
+     auto-applies the sale opt-out silently (new consent action
+     `gpc_opt_out`, log label + Home opt-out count included), reopen pill
+     stays; EU behavior unchanged. Harness-verified all 3 cases
+     (US+GPC silent opt-out w/ correct setTrackingConsent + GCM denials;
+     US w/o GPC normal bar; DE+GPC normal opt-in banner). Bundle now
+     **19233B min / 6.93KB gzip** (≤19KB budget, ~220B headroom left).
+   - **DSAR page + inbox (free):** themed storefront form at
+     /apps/consentinel/privacy (app proxy returns application/liquid —
+     zero bundle cost; honeypot + per-shop rate limit + dedupe; no input
+     reflection). DataRequest model (+ `add_data_requests` migration) is
+     THE one PII table — SHOP_REDACT purges it, CUSTOMERS_REDACT now
+     deletes rows by customer email (was a no-op). Admin inbox at
+     /app/requests (+ nav link) with open/resolved toggle; Home shows an
+     open-requests card when nonzero.
+   - **Cookie policy generator (Pro):** /app/scanner section generates or
+     updates an Online Store "Cookie Policy" page from scan findings
+     (categories, per-service table with pre-consent handling, Privacy
+     choices + GPC + DSAR-page links). policyPageId on ShopSettings
+     (+ `add_policy_page` migration) keeps regeneration in-place; page
+     recreated if merchant deleted it. Gate = canGeneratePolicy.
+     **SCOPES CHANGED: += write_online_store_pages** (verified valid for
+     pageCreate/pageUpdate) — after deploy, re-open the app once and
+     accept the permission prompt.
+
+4. Merchant steps owed: restart dev server (TWO new migrations:
+   `add_data_requests`, `add_policy_page`), deploy, re-open app + accept
+   the new permission. Then test: storefront /apps/consentinel/privacy
+   form (submit a request → appears in /app/requests → resolve; note the
+   dev-store password page must be unlocked in the browser first),
+   policy generator on Pro (page appears in Online Store → Pages,
+   regenerate updates in place), GPC end-to-end if convenient (enable
+   GPC in Firefox/Brave or the harness already covers it), and the usual
+   banner regression on the storefront.
+
+5. Remaining before App Store submission: production hosting + Postgres
    switch (needs merchant decision — Render/Railway/Fly are documented in
-   README), App Store listing assets (copy draft in LISTING.md), EU-VPN
-   spot checks above, and a final pass over PRE_SUBMISSION_CHECKLIST.md.
+   README), LISTING.md bracketed fields + screenshots, EU-VPN spot checks
+   (consent-log row + GCM dataLayer), final PRE_SUBMISSION_CHECKLIST.md
+   pass. Roadmap next after launch (from COMPETITORS.md): EU Withdrawal
+   form (Directive 2023/2673 — investigate email/durable-medium first),
+   scheduled scans, Meta/TikTok pixel integrations.
 
 **Session-3 history (all now deployed + verified):** competitor-parity round
 (reopen pill, prefilled prefs, 30-day stats, CSV export, name recase),

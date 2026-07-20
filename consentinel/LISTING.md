@@ -26,17 +26,19 @@ which trackers you run. Setup takes minutes: one theme embed, no code.
 
 1. Cookie scanner: see every tracker your store loads and how it's handled
 2. Real pre-consent script blocking — not just a banner that hides cookies
-3. Google Consent Mode v2 built in; conversion modeling keeps working
+3. Google Consent Mode v2 + Global Privacy Control honored, both included free
 4. Region-aware: EU/UK opt-in, US states Do Not Sell/Share, auto-resolved
-5. PII-free consent audit log with CSV export
+5. Data-request (DSAR) page and PII-free consent audit log with CSV export
 
 ## Pricing
 
-- **Free** — Compliant banner, script blocking, Consent Mode v2, compliant
-  region defaults, audit log, cookie scanner.
+- **Free** — Compliant banner, script blocking, Consent Mode v2, Global
+  Privacy Control support, compliant region defaults, audit log, cookie
+  scanner, customer data-request (DSAR) page + inbox.
 - **Pro $9/mo, 14-day trial** — Region rule customization, your logo on the
   banner, advanced styling (widths/fonts/borders), banner translations
-  (de/fr/es/it/nl/pt), CSV export, remove the "Powered by" credit.
+  (de/fr/es/it/nl/pt), CSV export, one-click cookie policy page generator,
+  remove the "Powered by" credit.
 
 ## Screenshot shot list (1600×900 desktop, capture after deploy)
 

@@ -16,37 +16,44 @@ START HERE:
    all environment quirks for this machine (which shopify CLI binary and
    node@22 PATH prefix, the local banner-test harness recipe + its
    cache-busting/click gotchas).
-2. State at end of session 4 (2026-07-20): the whole session-3 batch is
-   deployed and I verified it with no issues. A NEW launch-prep batch is
-   committed through 84b8824 but NOT DEPLOYED: cookie scanner (server-side;
-   /app/scanner + Home teaser; new ScanResult model + add_scan_result
-   migration), APP_SUBSCRIPTIONS_UPDATE webhook (toml changed → deploy
-   required), first-install metafield sync via afterAuth (fresh installs get
-   a banner immediately), SHOP_REDACT purge fix (BannerTranslation +
-   ScanResult now purged). LISTING.md holds the App Store listing draft with
-   bracketed fields I still need to fill (support email, privacy-policy URL,
-   app icon, demo store decision). Banner bundle untouched: 19101B / 6.9KB
-   gzip vs ≤19KB budget — nearly full; trim or bump before storefront
-   features.
+2. State at end of session 4 (2026-07-20): the session-3 batch AND the
+   launch-prep batch (cookie scanner, subscriptions webhook, afterAuth
+   install sync, redact fixes) are deployed and I verified both with no
+   issues. A NEW competitor-parity batch is committed but NOT DEPLOYED
+   (research in COMPETITORS.md; I approved "DSAR + GPC free, policy
+   generator Pro"): Global Privacy Control auto-opt-out in US opt-out
+   regions (harness-verified; bundle 19233B / 6.93KB gzip vs ≤19KB budget
+   — ~220B headroom), storefront data-request (DSAR) page at
+   /apps/consentinel/privacy + /app/requests admin inbox +
+   CUSTOMERS_REDACT now erases request rows by email, and a Pro cookie
+   policy generator on /app/scanner that writes an Online Store page.
+   SCOPES CHANGED "read_themes,write_files" → adds
+   write_online_store_pages — after deploy I must re-open the app once
+   and accept the permission prompt. LISTING.md still has bracketed
+   fields to fill (support email, privacy-policy URL, app icon, demo
+   store decision).
 3. My first steps (remind me): restart the dev server from MY terminal
-   (one new migration since my last restart: add_scan_result), then deploy
-   from a second terminal:
+   (two new migrations since my last restart: add_data_requests +
+   add_policy_page), then deploy from a second terminal:
    cd ~/Documents/github/consentinel/consentinel && PATH="/usr/local/opt/node@22/bin:$PATH" ~/.npm-global/bin/shopify app deploy --allow-updates
-   (no new scopes this time — no permission prompt expected).
+   then re-open the app and accept the permissions prompt (new scope).
 4. My test results from the deploy: [PASTE RESULTS OR SCREENSHOTS HERE —
-   /app/scanner "Scan my store" on the dev store (EXPECTED: notice that the
-   storefront is password-protected; findings come from theme code + app
-   embeds only); Home shows the Cookie scanner card with the count; plan
-   upgrade or cancel flips the plan WITHOUT reopening the app (new webhook);
-   still owed from before (needs VPN to an EU country): fresh accept →
-   consent-log row, GCM dataLayer entries]
+   storefront /apps/consentinel/privacy renders themed, submitting a
+   request shows the confirmation and the request appears in
+   /app/requests where Mark resolved works; Home shows the open-requests
+   card; on Pro, "Generate cookie policy page" creates Online Store →
+   Pages → Cookie Policy and regenerating updates it in place; banner
+   still renders normally on the storefront (GPC regression was
+   harness-verified); still owed from before (needs EU VPN): fresh
+   accept → consent-log row, GCM dataLayer entries]
 5. Agreed next work (in order): (a) production hosting + Postgres switch —
    I need to pick Render / Railway / Fly (README documents all three), then
    we do the switch + env vars + SHOPIFY_BILLING_TEST=false plan;
    (b) finish LISTING.md fields + capture the screenshot shot list;
    (c) final pass over PRE_SUBMISSION_CHECKLIST.md and submit.
-   Roadmap after launch: DSAR page, auto-generated privacy policy, weekly
-   stats email, accessibility widget, Meta/TikTok pixel integrations,
+   Roadmap after launch (COMPETITORS.md): EU Withdrawal form (Directive
+   2023/2673 — investigate durable-medium/email question first),
+   scheduled scans, Meta/TikTok pixel integrations, accessibility widget,
    IAB TCF.
 
 Same working method as before: work incrementally, verify each stage yourself
