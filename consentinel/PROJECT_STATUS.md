@@ -4,6 +4,18 @@ _Last updated: 2026-07-20 (session 4)._
 
 ## ⏸ SESSION-4 STOPPING POINT — resume here
 
+PAUSED by merchant (no hosting budget today); resuming on the weekend to do
+the **production hosting + Postgres switch on Render** (~$14/mo). Everything
+is committed, tree clean. NOT YET DEPLOYED: the competitor-parity batch
+(DSAR/GPC/policy generator — adds write_online_store_pages scope) AND the
+hosting move (render.yaml + healthz + DEPLOY.md are in; the SQLite→Postgres
+migration regeneration is pending a Postgres connection string). Next-session
+plan: follow DEPLOY.md Phase A (merchant creates Render Postgres, pastes the
+external URL) → Phase B (Claude regenerates Postgres migrations) → Phase C–E
+(env vars, deploy, point Shopify at the Render URL); the parity batch deploys
+with that config. Security review complete (SECURITY_REVIEW.md, no
+High/Critical). Full resume prompt in RESUME_PROMPT.md.
+
 0. **Session-3 batch DEPLOYED + MERCHANT-VERIFIED (2026-07-20), no issues.**
    Everything from the session-3 stopping point passed on the real store:
    app title "Consentinel", advanced styling (widths/fonts/borders), logo
