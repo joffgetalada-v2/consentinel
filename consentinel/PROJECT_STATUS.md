@@ -1,124 +1,72 @@
 # Consentinel — Project Status & Handoff
 
-_Last updated: 2026-07-18 (session 3)._
+_Last updated: 2026-07-20 (session 4)._
 
-## ⏸ SESSION-3 STOPPING POINT — resume here
+## ⏸ SESSION-4 STOPPING POINT — resume here
 
--3. **NEWEST (2026-07-19 latest): competitor-parity round (0c2be0d), NOT
-   deployed.** After researching Pandectes/Consentmo tiers: floating
-   "Privacy choices" reopen pill (free + Appearance toggle,
-   ShopSettings.showReopen + migration — closes the no-way-back-after-
-   decision compliance gap), preferences prefilled from stored consent,
-   Home 30-day consent stats (free; Consentmo charges $34), consent-log
-   CSV export (Pro, /app/log.csv via App Bridge fetch + blob download),
-   app name recased to "Consentinel" in the toml (fixes lowercase admin
-   nav title; applies on deploy). Bundle 18741B / 6.9KB gzip, budget now
-   ≤19KB. Harness-verified reopen→prefill→save→pill-returns loop.
-   COMPETITOR ROADMAP (not built): cookie scanner (Phase 2), DSAR page,
-   auto-generated privacy policies, accessibility widget (Consentmo
-   differentiator), Meta/TikTok pixel integrations, IAB TCF.
+0. **Session-3 batch DEPLOYED + MERCHANT-VERIFIED (2026-07-20), no issues.**
+   Everything from the session-3 stopping point passed on the real store:
+   app title "Consentinel", advanced styling (widths/fonts/borders), logo
+   image picker + width/position, mobile polish, "Privacy choices" reopen
+   pill + prefilled preferences, Home embed detection + 30-day stats, CSV
+   export, translations, billing. Scopes "read_themes,write_files" granted.
+   Banner bundle 19101B min / 6.9KB gzip (≤19KB budget, nearly full — trim
+   or bump before ANY new storefront-bundle feature). Still owed from
+   before (needs EU VPN): fresh accept → consent-log row + GCM dataLayer
+   entries.
 
--4. **NEWEST (2026-07-19 latest+1): banner translations (Pro) + embed
-   detection, NOT deployed.** Translations: BannerTranslation model +
-   migration; server dictionary of ALL banner strings in de/fr/es/it/nl/pt
-   (app/models/translations.server.ts — fixed UI strings auto-translate,
-   content fields seeded then merchant-editable); Pro-gated i18n map in the
-   config metafield (short keys hd/bd/ac/rj/cu/ph/sv/nn..pp); bundle picks
-   config.i18n[lang] from Liquid request.locale with English fallback; new
-   /app/translations page + nav link; plan bullet added. Embed detection:
-   read_themes scope added (scopes now "read_themes,write_files"), Home
-   checklist item 1 reads settings_data.json via
-   app/models/embedStatus.server.ts (true/false/null-unknown — never
-   crashes Home). Bundle 19101B / 6.9KB gzip (≤19KB budget).
-   Harness-verified French banner (fr-CA → fr) main + Customize views.
-   Deploy + app re-open (scope grant) + merchant tests owed.
+1. **NEW (2026-07-20): launch-prep batch — built, typecheck/lint/build
+   clean, smoke-tested, NOT DEPLOYED, NOT merchant-tested.**
+   - **Cookie scanner** (the "we found N trackers" install driver; zero
+     storefront-bundle impact — fully server-side).
+     `app/models/trackerCatalog.server.ts`: ~45 known services with
+     `handling` = blocked | consent_mode | visible — the blocked list MUST
+     STAY IN SYNC with TRACKER_PATTERNS in
+     app/storefront/consent-banner.ts. `app/models/scanner.server.ts`:
+     fetches rendered home + one product page (gracefully skips to
+     theme-only when the storefront is password-protected — the dev store
+     ALWAYS is, so expect the in-UI notice there), plus layout/theme.liquid
+     and settings_data.json app embeds via read_themes. Results upserted
+     latest-per-shop in new `ScanResult` model (migration
+     `add_scan_result`). UI: /app/scanner (+ nav link) grouped by handling,
+     Home aside teaser card with tracker count. Catalog patterns
+     smoke-tested against a fixture incl. a false-positive check.
+   - **APP_SUBSCRIPTIONS_UPDATE webhook** (toml + route +
+     `applySubscriptionUpdate` in billing.server.ts): instant plan-cache
+     sync on approve/cancel/decline/frozen; PENDING is a no-op; any
+     downgrade restores branding; resyncs the config metafield.
+   - **afterAuth hook** in shopify.server.ts: first install now seeds
+     settings + region rules and writes the banner_config metafield —
+     closes the long-standing "fresh install shows no banner until first
+     Save" gap.
+   - **SHOP_REDACT purge fix**: BannerTranslation (added session 3 but
+     NEVER added to the purge — real compliance gap) and ScanResult now
+     deleted in the redact transaction.
 
--2. **NEWEST (2026-07-19 later): logo width + modal/card width + dirty-save
-   + position-scoped width controls, NOT deployed.** ShopSettings.cardWidth
-   (280–600, default 400) sizes the bottom-left/right cards; the Advanced
-   styling section now shows ONLY the width control matching the selected
-   position (bar select / modal field / card field). Harness-verified
-   560px dark card with 140px side logo. PLUS mobile polish (merchant
-   report "not professional on mobile"): side logos stack above the text
-   ≤760px, logo capped at min(logoSize, 55vw) ≤520px, and body/heading/
-   button fonts step down one notch (floor 13px) ≤520px — verified at 375px
-   in the harness. Budget RESTATED to ≤18KB min; now 17754B / 6.6KB gzip
-   (wire cost is what matters). logoSize reinterpreted as WIDTH px (text field, clamped
-   20–200, migration resets existing rows to 120 — height now scales with
-   the image, fixing the "logo looks small/cramped" report); new
-   ShopSettings.modalWidth (text field, 320–720, default 460) drives the
-   centered modal via width:min(${"{mw}"}px, 100vw-32px) so it stays
-   responsive (≤520px bottom-sheet unchanged); Banner-settings Save button
-   now grays out until the form differs from the saved loader state
-   (formStateFrom baseline compare — revalidation after save re-disables
-   it). Bundle 17405B min / 6.4KB gzip (≤17KB). Harness-verified 640px
-   dark modal + 180px-wide logo. Restart dev server (new Prisma client)
-   + deploy still required.
+2. Merchant steps owed: restart dev server from an interactive terminal
+   (new migration `add_scan_result` → new Prisma client), then
+   `shopify app deploy --allow-updates` (the toml webhook change requires
+   a deploy). Then test: /app/scanner on the dev store (expect the
+   password-protected notice; findings come from theme + app embeds),
+   Home scanner card, first-install flow if convenient (reinstall on a
+   scratch store → banner config exists immediately), plan upgrade/cancel
+   → plan flips without reopening the app (webhook working).
 
--1. **(2026-07-19): logo layout + image picker + billing return fix,
-   NOT deployed.** (a) Logo size (24/36/48 select, clamped 20–60) and
-   position (top/left/right of content) — new ShopSettings columns +
-   `add_logo_layout` migration, storefront flex layouts, preview support;
-   harness-verified left@48 dark bar + right@24 light card. (b) In-app logo
-   image picker: hidden file input → POST /app/logo-upload
-   (app/routes/app.logo-upload.tsx: stagedUploadsCreate → POST bytes →
-   fileCreate → poll READY → CDN URL into the form). **REQUIRES the new
-   `write_files` scope (shopify.app.toml changed from "")** — after deploy,
-   re-open the app once so managed install grants it; merchant-tested
-   upload still owed. (c) White screen after approving the test charge
-   fixed: billing returnUrl now points at the embedded admin deep link
-   (admin.shopify.com/store/{handle}/apps/{api-key}/app/plan) instead of
-   the bare tunnel URL where App Bridge has no shop/host. (d) Billing now
-   VERIFIED working after the merchant chose Public distribution in the
-   Partner Dashboard; Pro features unlock. Bundle 17375B min / 6.5KB gzip
-   (≤17KB budget).
+3. Remaining before App Store submission: production hosting + Postgres
+   switch (needs merchant decision — Render/Railway/Fly are documented in
+   README), App Store listing assets (copy draft in LISTING.md), EU-VPN
+   spot checks above, and a final pass over PRE_SUBMISSION_CHECKLIST.md.
 
-0. **NEW (later in session 3): Advanced styling (Pro) + focus-ring fix,
-   harness-verified, NOT deployed.** Merchant asked for width/font/border
-   controls after seeing the deployed banner. Shipped: `bannerWidth`
-   (contained 960px | full edge-to-edge, bottom bar only), `fontFamily`
-   (system | theme — theme mode appends font-family:inherit after every
-   font shorthand), `fontSize` + `buttonFontSize` (12–18px), `borderWidth`
-   (0–3px, banner container only; buttons/cards keep 1px). New ShopSettings
-   columns + migration `add_style_settings`; gate = `canUseAdvancedStyling`
-   in billing.server.ts (free is forced to defaults in buildStorefrontConfig,
-   UI disabled with upgrade hint, action ignores fields); clamps shared in
-   types/consent.ts STYLE_LIMITS and re-clamped in the bundle. The "thick
-   border" the merchant reported was the autofocus focus-visible ring —
-   banner now focuses the panel (tabindex -1; trap patched so shift-Tab from
-   the panel wraps) and the position label "Bottom bar (full width)" was
-   renamed. Bundle budget RESTATED to ≤17KB min / ~6.2KB gzip (now 16933B /
-   6375B) — the old 16KiB budget had zero headroom. Merchant still needs:
-   `shopify app deploy`, then upgrade to Pro via TEST billing to try the
-   new settings (SHOPIFY_BILLING_TEST defaults on → no real charge).
-
-1. **Bottom-bar layout + checkbox fix VERIFIED in the harness (2026-07-18)**:
-   dark bottom_bar main + Customize, light desktop, mobile 375px, US opt-out
-   bar, center_modal + logo + scrim — all screenshot-checked. The harness
-   also caught and we fixed four NEW theme-bleed leaks the hardening missed
-   (`text-transform`/`text-decoration`/`font` not pinned on `.cstl-body a`,
-   `.cstl-catrow`, `.cstl-cat b/small`; `transform` not reset on
-   `.cstl-toggle` — a theme `input{transform:scale(2)}` doubled checkbox
-   size), plus two mobile issues (buttons squeezed onto one row by `flex:1`
-   basis-0 → "Accept all" wrapped to 2 lines; fixed with `flex:1 1 40%` +
-   tighter padding under 520px) and added a double-click guard in
-   submitConsent so rapid clicks can't write duplicate audit-log rows.
-   Bundle 16368B min (just under the 16KiB budget — ~0 headroom left) /
-   6.0KB gzip. Typecheck + lint clean. Committed.
-2. **NOT YET DEPLOYED** (merchant runs
-   `PATH="/usr/local/opt/node@22/bin:$PATH" ~/.npm-global/bin/shopify app deploy --allow-updates`
-   from `consentinel/`): scrim rename, focus-ring fix, Pro logo feature,
-   bottom-bar layout + checkbox fixes, theme-bleed leak fixes, mobile action
-   layout, double-click guard.
-3. Merchant tests owed after deploy: bottom-bar spacing + checkbox clarity
-   on the real storefront (the original report), modal layout, consent-log
-   row after a fresh accept, GCM dataLayer entries, billing upgrade/cancel
-   flow, logo URL end-to-end (needs Pro).
-4. Harness tip learned this session: cache-bust the bundle script tag
-   (`consent-banner.js?v=<Date.now()>` via document.write) or the browser
-   re-runs a stale cached bundle after rebuilds; the Claude-browser console
-   reader duplicates every message (a single log line appears twice), and
-   only ref-based/JS clicks land — raw coordinate clicks silently miss.
+**Session-3 history (all now deployed + verified):** competitor-parity round
+(reopen pill, prefilled prefs, 30-day stats, CSV export, name recase),
+banner translations de/fr/es/it/nl/pt (Pro) + real embed detection
+(read_themes), logo width/position + image picker (write_files) +
+modal/card widths + dirty-save, mobile polish, advanced styling (Pro) +
+focus-ring fix, bottom-bar layout + checkbox fixes + theme-bleed
+hardening + double-click guard. Billing verified (test mode; Public
+distribution chosen). Roadmap ideas not built: DSAR page, auto privacy
+policy, accessibility widget, Meta/TikTok pixel integrations, IAB TCF,
+weekly stats email.
 
 ## Local banner harness (how to verify banner UI without the store)
 
@@ -130,6 +78,11 @@ false — also exercises local region resolution), simulates hostile theme CSS
 `python3 -m http.server`, screenshot light/dark × opt_in/opt_out ×
 positions × mobile in the Claude browser. Query params worth wiring:
 `theme, position, country, accent, logo`.
+Gotchas: cache-bust the bundle script tag
+(`consent-banner.js?v=<Date.now()>` via document.write) or the browser
+re-runs a stale cached bundle after rebuilds; the Claude-browser console
+reader duplicates every message (a single log line appears twice); only
+ref-based/JS clicks land — raw coordinate clicks silently miss.
 Cookie-consent / GDPR compliance Shopify app ("Built for Shopify"-ready MVP).
 Full product spec lives in the original kickoff prompt; key constraints: Customer
 Privacy API only (never raw Shopify cookies), theme app extension embed for the
