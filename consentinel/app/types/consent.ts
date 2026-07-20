@@ -81,6 +81,9 @@ export const CONSENT_ACTIONS = [
   "reject_all",
   "custom",
   "sale_opt_out",
+  // Automatic opt-out honoring the browser's Global Privacy Control signal
+  // (legally binding under CPRA/Colorado; recorded without a click).
+  "gpc_opt_out",
 ] as const;
 export type ConsentAction = (typeof CONSENT_ACTIONS)[number];
 

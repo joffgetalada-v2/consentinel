@@ -178,6 +178,7 @@ export default function Plan() {
           <s-paragraph>✓ Advanced styling — banner width, fonts, and border thickness</s-paragraph>
           <s-paragraph>✓ Banner translations — German, French, Spanish, Italian, Dutch, Portuguese</s-paragraph>
           <s-paragraph>✓ Consent log CSV export for audits</s-paragraph>
+          <s-paragraph>✓ Cookie policy page generator — one click from your scan results</s-paragraph>
           <s-paragraph>✓ Remove the &quot;Powered by&quot; branding credit</s-paragraph>
           {!isPaid && (
             <>

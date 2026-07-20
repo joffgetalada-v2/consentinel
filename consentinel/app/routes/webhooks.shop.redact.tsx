@@ -13,17 +13,18 @@ import db from "../db.server";
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { shop, topic } = await authenticate.webhook(request);
 
-  const [events, rules, translations, scans, settings, sessions] =
+  const [events, rules, translations, scans, dsars, settings, sessions] =
     await db.$transaction([
       db.consentEvent.deleteMany({ where: { shop } }),
       db.regionRule.deleteMany({ where: { shop } }),
       db.bannerTranslation.deleteMany({ where: { shop } }),
       db.scanResult.deleteMany({ where: { shop } }),
+      db.dataRequest.deleteMany({ where: { shop } }),
       db.shopSettings.deleteMany({ where: { shop } }),
       db.session.deleteMany({ where: { shop } }),
     ]);
   console.log(
-    `Received ${topic} webhook for ${shop}: purged ${events.count} consent events, ${rules.count} region rules, ${translations.count} translations, ${scans.count} scan results, ${settings.count} settings rows, ${sessions.count} sessions`,
+    `Received ${topic} webhook for ${shop}: purged ${events.count} consent events, ${rules.count} region rules, ${translations.count} translations, ${scans.count} scan results, ${dsars.count} data requests, ${settings.count} settings rows, ${sessions.count} sessions`,
   );
 
   return new Response();

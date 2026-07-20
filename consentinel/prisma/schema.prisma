@@ -88,6 +88,10 @@ model ShopSettings {
   // control again (CCPA). On by default; merchants can hide it.
   showReopen Boolean @default(true)
 
+  // Online Store page created by the Pro cookie-policy generator (GID),
+  // so regeneration updates the same page instead of creating duplicates.
+  policyPageId String?
+
   onboardingDismissed Boolean @default(false)
 
   createdAt DateTime @default(now())
@@ -114,6 +118,28 @@ model BannerTranslation {
 
   @@unique([shop, locale])
   @@index([shop])
+}
+
+// Visitor-submitted privacy requests (DSAR) from the app-proxy form at
+// /apps/consentinel/privacy. UNLIKE the consent log, these rows DO hold PII
+// (email, free text) — so SHOP_REDACT purges them and CUSTOMERS_REDACT
+// deletes rows matching the redacted customer's email.
+model DataRequest {
+  id   String @id @default(cuid())
+  shop String
+
+  type      String // access | deletion | correction
+  email     String
+  name      String?
+  orderInfo String?
+  message   String?
+
+  status     String    @default("open") // open | resolved
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([shop, status])
+  @@index([shop, email])
 }
 
 // Latest cookie-scan result per shop (upserted on every scan — no history).

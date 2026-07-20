@@ -1,18 +1,22 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
+import { deleteDataRequestsByEmail } from "../models/dataRequests.server";
 
 /**
  * GDPR/CCPA mandatory webhook: erase a specific customer's personal data.
- * Consentinel stores no customer-identifiable data — ConsentEvent rows carry
- * no customer id, IP, or user agent, and the random visitorToken cannot be
- * correlated with the customer ids in this payload. With nothing to link a
- * customer to, there is nothing to redact; a 200 acknowledges completion.
+ * The consent log stores no customer-identifiable data (no customer id, IP,
+ * or user agent; visitorToken is random and uncorrelatable). The ONE place
+ * PII can live is the DSAR inbox (DataRequest rows hold an email address) —
+ * so those rows are deleted here when the payload identifies the customer.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { shop, topic } = await authenticate.webhook(request);
+  const { shop, topic, payload } = await authenticate.webhook(request);
+
+  const email = (payload as { customer?: { email?: string } }).customer?.email;
+  const deleted = email ? await deleteDataRequestsByEmail(shop, email) : 0;
 
   console.log(
-    `Received ${topic} webhook for ${shop}: no customer-linked data stored, nothing to redact`,
+    `Received ${topic} webhook for ${shop}: deleted ${deleted} data-request row(s); consent log stores no customer-linked data`,
   );
 
   return new Response();

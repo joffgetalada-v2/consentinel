@@ -24,6 +24,7 @@ export default function App() {
         <s-link href="/app/translations">Translations</s-link>
         <s-link href="/app/regions">Region rules</s-link>
         <s-link href="/app/log">Consent log</s-link>
+        <s-link href="/app/requests">Data requests</s-link>
         <s-link href="/app/plan">Plan</s-link>
       </s-app-nav>
       <Outlet />

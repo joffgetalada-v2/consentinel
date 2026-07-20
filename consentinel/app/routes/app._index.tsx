@@ -15,6 +15,7 @@ import { syncPlanFromBilling } from "../models/billing.server";
 import { getRegionRules } from "../models/regionRules.server";
 import { isEmbedActive } from "../models/embedStatus.server";
 import { getLatestScan } from "../models/scanner.server";
+import { countOpenDataRequests } from "../models/dataRequests.server";
 import prisma from "../db.server";
 
 /**
@@ -51,13 +52,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       isEmbedActive(admin),
       getLatestScan(session.shop),
     ]);
+  const openRequests = await countOpenDataRequests(session.shop);
 
   const countFor = (action: string) =>
     recentByAction.find((row) => row.action === action)?._count._all ?? 0;
   const accepts = countFor("accept_all");
   const rejects = countFor("reject_all");
   const custom = countFor("custom");
-  const optOuts = countFor("sale_opt_out");
+  const optOuts = countFor("sale_opt_out") + countFor("gpc_opt_out");
   const optInTotal = accepts + rejects + custom;
 
   return {
@@ -77,6 +79,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       acceptRate: optInTotal > 0 ? Math.round((accepts / optInTotal) * 100) : null,
     },
     plan: settings.plan,
+    openRequests,
     scanTrackerCount:
       scan?.status === "completed"
         ? scan.findings.filter((finding) => finding.category !== "essential")
@@ -160,6 +163,18 @@ export default function Index() {
         )}
         <s-button href="/app/log">View consent log</s-button>
       </s-section>
+
+      {data.openRequests > 0 && (
+        <s-section slot="aside" heading="Data requests">
+          <s-paragraph>
+            {data.openRequests} open privacy request
+            {data.openRequests === 1 ? "" : "s"} awaiting your response.
+          </s-paragraph>
+          <s-button href="/app/requests" variant="primary">
+            View requests
+          </s-button>
+        </s-section>
+      )}
 
       <s-section slot="aside" heading="Cookie scanner">
         <s-paragraph>

@@ -515,18 +515,32 @@ function start(api: CustomerPrivacy, country: string): void {
   if (saleRegion && config.optOut) {
     // Opt-out model: tracking may run by default. Unblock everything unless
     // the visitor previously opted out. The opt-out control stays available;
-    // it fires ONLY on visitor interaction, per Shopify's requirements.
+    // it fires on visitor interaction — or on the Global Privacy Control
+    // signal, which CPRA/Colorado treat as a binding opt-out request.
+    if (prior.sale_of_data === "") {
+      if ((navigator as { globalPrivacyControl?: boolean }).globalPrivacyControl) {
+        // GPC present, no stored decision: honor it silently (no banner);
+        // the reopen pill stays so the visitor can change their mind.
+        submitConsent(
+          api,
+          "opt_out",
+          "gpc_opt_out",
+          { preferences: true, analytics: false, marketing: false },
+          false,
+        );
+        return;
+      }
+      disableBlocking();
+      whenBodyReady(() => renderBanner(api, "opt_out"));
+      return;
+    }
     if (prior.sale_of_data === "no") {
       applyGrants({ preferences: true, analytics: false, marketing: false });
     } else {
       disableBlocking();
     }
-    if (prior.sale_of_data === "") {
-      whenBodyReady(() => renderBanner(api, "opt_out"));
-    } else {
-      // CCPA-style regions require the opt-out control to stay reachable.
-      whenBodyReady(() => renderReopen(api, "opt_out"));
-    }
+    // CCPA-style regions require the opt-out control to stay reachable.
+    whenBodyReady(() => renderReopen(api, "opt_out"));
     return;
   }
 
@@ -566,7 +580,7 @@ let submitting = false;
 function submitConsent(
   api: CustomerPrivacy,
   mode: "opt_in" | "opt_out",
-  action: "accept_all" | "reject_all" | "custom" | "sale_opt_out",
+  action: "accept_all" | "reject_all" | "custom" | "sale_opt_out" | "gpc_opt_out",
   categories: { preferences: boolean; analytics: boolean; marketing: boolean },
   saleOfData: boolean | null,
 ): void {

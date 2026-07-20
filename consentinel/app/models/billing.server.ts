@@ -57,6 +57,11 @@ export function canUseAdvancedStyling(plan: string): boolean {
   return plan === "paid";
 }
 
+/** One-click cookie-policy page generation from scan results is Pro only. */
+export function canGeneratePolicy(plan: string): boolean {
+  return plan === "paid";
+}
+
 // ---------------------------------------------------------------------------
 // Plan cache reconciliation
 // ---------------------------------------------------------------------------

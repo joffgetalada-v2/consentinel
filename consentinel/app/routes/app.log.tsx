@@ -29,6 +29,7 @@ const ACTION_LABELS: Record<string, { label: string; tone: "success" | "critical
   reject_all: { label: "Rejected all", tone: "critical" },
   custom: { label: "Custom", tone: "info" },
   sale_opt_out: { label: "Do Not Sell/Share", tone: "warning" },
+  gpc_opt_out: { label: "GPC signal opt-out", tone: "warning" },
 };
 
 export default function ConsentLog() {

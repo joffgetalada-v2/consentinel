@@ -19,14 +19,44 @@ import {
   runScan,
   type TrackerFinding,
 } from "../models/scanner.server";
+import { getShopSettings } from "../models/shopSettings.server";
+import { canGeneratePolicy } from "../models/billing.server";
+import { generatePolicyPage } from "../models/policyGenerator.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  return { scan: await getLatestScan(session.shop) };
+  const [scan, settings] = await Promise.all([
+    getLatestScan(session.shop),
+    getShopSettings(session.shop),
+  ]);
+  return {
+    scan,
+    shopDomain: session.shop,
+    canPolicy: canGeneratePolicy(settings.plan),
+  };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
+  const form = await request.formData();
+  const intent = String(form.get("intent") ?? "scan");
+
+  if (intent === "generate_policy") {
+    const settings = await getShopSettings(session.shop);
+    if (!canGeneratePolicy(settings.plan)) {
+      return {
+        ok: false as const,
+        message: "The cookie policy generator requires the Pro plan",
+      };
+    }
+    const result = await generatePolicyPage(admin, session.shop);
+    return {
+      ok: result.ok,
+      message: result.message,
+      pagePath: result.pagePath ?? null,
+    };
+  }
+
   const report = await runScan(admin, session.shop);
   if (report.status === "failed") {
     return { ok: false as const, message: report.error ?? "Scan failed" };
@@ -70,17 +100,31 @@ const HANDLING_GROUPS = [
 ];
 
 export default function Scanner() {
-  const { scan } = useLoaderData<typeof loader>();
+  const { scan, shopDomain, canPolicy } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
+  const policyFetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
 
   const isScanning = fetcher.state !== "idle";
+  const isGenerating = policyFetcher.state !== "idle";
+  const policyPagePath =
+    policyFetcher.data && "pagePath" in policyFetcher.data
+      ? policyFetcher.data.pagePath
+      : null;
 
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data) {
       shopify.toast.show(fetcher.data.message, { isError: !fetcher.data.ok });
     }
   }, [fetcher.state, fetcher.data, shopify]);
+
+  useEffect(() => {
+    if (policyFetcher.state === "idle" && policyFetcher.data) {
+      shopify.toast.show(policyFetcher.data.message, {
+        isError: !policyFetcher.data.ok,
+      });
+    }
+  }, [policyFetcher.state, policyFetcher.data, shopify]);
 
   const findings = scan?.findings ?? [];
   const nonEssential = findings.filter(
@@ -99,7 +143,7 @@ export default function Scanner() {
           <s-stack direction="inline" gap="base">
             <s-button
               variant="primary"
-              onClick={() => fetcher.submit({}, { method: "POST" })}
+              onClick={() => fetcher.submit({ intent: "scan" }, { method: "POST" })}
               {...(isScanning ? { loading: true } : {})}
             >
               {scan ? "Scan again" : "Scan my store"}
@@ -192,6 +236,54 @@ export default function Scanner() {
           </s-stack>
         </s-section>
       )}
+
+      <s-section heading="Cookie policy page">
+        <s-stack direction="block" gap="base">
+          <s-paragraph>
+            Turn your scan results into a ready-made “Cookie Policy” page —
+            categories explained, detected services listed, and instructions
+            for changing consent. The page is created in Online Store →
+            Pages, and regenerating updates it in place.
+          </s-paragraph>
+          {canPolicy ? (
+            <s-stack direction="inline" gap="base">
+              <s-button
+                onClick={() =>
+                  policyFetcher.submit(
+                    { intent: "generate_policy" },
+                    { method: "POST" },
+                  )
+                }
+                {...(isGenerating ? { loading: true } : {})}
+              >
+                Generate cookie policy page
+              </s-button>
+              {policyPagePath && (
+                <s-link
+                  href={`https://${shopDomain}${policyPagePath}`}
+                  target="_blank"
+                >
+                  View the page
+                </s-link>
+              )}
+            </s-stack>
+          ) : (
+            <s-paragraph>
+              <s-text color="subdued">
+                The cookie policy generator is a Pro feature.{" "}
+              </s-text>
+              <s-link href="/app/plan">Upgrade to Pro</s-link>
+            </s-paragraph>
+          )}
+          <s-paragraph>
+            <s-text color="subdued">
+              The generated page is a starting point you can edit — it isn&apos;t
+              legal advice. Remember to link it (and the banner&apos;s privacy
+              policy link) from your footer.
+            </s-text>
+          </s-paragraph>
+        </s-stack>
+      </s-section>
 
       <s-section slot="aside" heading="How the scan works">
         <s-unordered-list>
